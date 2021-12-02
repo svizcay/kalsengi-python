@@ -38,6 +38,7 @@ from .base_mesh import Triangle, BaseMesh
 from .shader import Shader
 from .mesh_renderer import MeshRenderer
 from .texture import Texture
+from . import VertexAttrib
 
 def resize_callback(context, width, height):
     window = glfw.get_window_user_pointer(context)
@@ -98,27 +99,34 @@ class Window:
         #             triangle = Triangle()
         #             triangles.append(triangle)
         # print(len(triangles))
-        # triangle = Triangle()
+        triangle = Triangle()
+        # triangle = Triangle(VertexAttrib.POS)
+        # triangle = Triangle(VertexAttrib.COLOR)
+        # triangle = Triangle(VertexAttrib.POS | VertexAttrib.COLOR)
+        # triangle = Triangle(VertexAttrib.UV | VertexAttrib.COLOR)
+        # triangle = Triangle(VertexAttrib.UV | VertexAttrib.NORMAL | VertexAttrib.COLOR)
+        # triangle = Triangle(VertexAttrib.UV | VertexAttrib.COLOR)
+        # flag = VertexAttrib.POS | VertexAttrib.UV
 
-        # vertex data for a triangle
-        vertices = [-0.5, -0.5, 0,  # lower-left
-                    0.5, -0.5, 0,   # lower-right
-                    0, 0.5, 0]      # top-center
+        # # vertex data for a triangle
+        # vertices = [-0.5, -0.5, 0,  # lower-left
+        #             0.5, -0.5, 0,   # lower-right
+        #             0, 0.5, 0]      # top-center
 
-        uvs = [
-            0.0, 0.0,
-            1.0, 0.0,
-            0.5, 1.0,
-        ]
+        # uvs = [
+        #     0.0, 0.0,
+        #     1.0, 0.0,
+        #     0.5, 1.0,
+        # ]
 
-        normals = [0, 0, 1, # lower-left
-                0, 0, 1,    # lower-right
-                0, 0, 1]    # top-center
+        # normals = [0, 0, 1, # lower-left
+        #         0, 0, 1,    # lower-right
+        #         0, 0, 1]    # top-center
 
-        colors = [1, 0, 0,
-                    0, 1, 0,
-                    0, 0, 1]
-        triangle = BaseMesh(vertices, uvs=uvs, normals=normals, colors=colors)
+        # colors = [1, 0, 0,
+        #             0, 1, 0,
+        #             0, 0, 1]
+        # triangle = BaseMesh(vertices, uvs=uvs, normals=normals, colors=colors)
 
         # i want to test every triangle every shader?
         # shader = Shader(vertex_src, frag_src)

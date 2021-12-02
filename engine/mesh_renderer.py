@@ -14,6 +14,10 @@ class MeshRenderer:
         self.vao = gl.glGenVertexArrays(1)
         gl.glBindVertexArray(self.vao)
 
+        # do we need to ensure we have the right vbo
+        # bound to GL_ARRAY_BUFFER?
+        # right now we have it bound just because we created the mesh recently
+
         # let's check what's available in the shader
         # do we need the glUseProgram() when calling glGetAttribLocation?
         for attrib in vertex_attrib_loc:
@@ -35,6 +39,13 @@ class MeshRenderer:
                         ctypes.c_void_p(mesh.attribs_offset[attrib]) # offset but in pointer format (it's supposed to be an adddres)
                     )
                 else:
+                    # enabling the attrib without specifying the data source
+                    # with glVertexAttribPointer failed at rendering time
+                    # gl.glEnableVertexAttribArray(loc)
+
+                    # it seems that we need to use glDisableVertexAttribArray
+                    # if we are not going to enable it
+                    gl.glDisableVertexAttribArray(loc)
                     print("{} attrib not available in mesh data".format(attrib))
             else:
                 print("{} attrib not available in shader {}".format(attrib, shader.program))
