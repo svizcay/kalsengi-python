@@ -13,6 +13,8 @@ import numpy as np
 # for creating VBO and VAO
 import OpenGL.GL as gl
 
+# import ctypes
+
 from . import vertex_attrib_loc
 from . import VertexAttrib
 
@@ -30,7 +32,8 @@ class BaseMesh:
     def __init__(self, vertices,*,
             uvs = None,
             normals = None,
-            colors = None):
+            colors = None,
+            indices = None):
         # print("vertices: {}".format(vertices))
         self.vertices = vertices
         self.uvs = uvs
@@ -106,13 +109,13 @@ class BaseMesh:
         # print("colors: {}".format(colors))
         # print("whole data: {}".format(vertex_data))
 
-        for key in self.attribs_offset:
-            print("{} offset = {}".format(key, self.attribs_offset[key]))
+        # for key in self.attribs_offset:
+        #     print("{} offset = {}".format(key, self.attribs_offset[key]))
 
         # this only ask the gpu for an id
         # it doesn't allocate any memory.
         # gpu doesn't know yet how much space is needed.
-        vbo = gl.glGenBuffers(1)
+        self.vbo = gl.glGenBuffers(1)
 
         # to send data to some buffer
         # we need to bind it first
@@ -126,9 +129,9 @@ class BaseMesh:
         # GL_TEXTURE_BUFFER
         # GL_TRANSFORM_FEEDBACK_BUFFER
         # GL_UNIFORM_BUFFER
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo)
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.vbo)
 
-        print("vertex data size in bytes = {}".format(vertex_data.nbytes))
+        # print("vertex data size in bytes = {}".format(vertex_data.nbytes))
 
         # for whole vertex data (using a single vbo)
         gl.glBufferData(
@@ -138,9 +141,50 @@ class BaseMesh:
             gl.GL_STATIC_DRAW      # usage: it depends on the usage where the chunk of memory in gpu is going to be allocated
         )
 
+        self.indexed_drawing = False
+
+        # element buffer object
+        if (indices is not None):
+            self.indexed_drawing = True
+            self.ebo = gl.glGenBuffers(1)
+            self.nr_indices = len(indices)
+            indices = np.array(indices, dtype=np.uint32)
+            gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self.ebo)
+            gl.glBufferData(
+                gl.GL_ELEMENT_ARRAY_BUFFER,
+                indices.nbytes,
+                indices,
+                gl.GL_STATIC_DRAW
+            )
+
     @property
     def nr_vertices(self):
         return self._nr_vertices
+
+    def draw(self):
+        if (self.indexed_drawing):
+            # print("using indexed drawing nr indices = {}".format(self.nr_indices))
+            gl.glDrawElements(
+                gl.GL_TRIANGLES,    # mode
+                self.nr_indices,    # nr of indices
+                gl.GL_UNSIGNED_INT, # type
+                None                # offset
+                # 0
+                # ctypes.c_void_p(0)  # offset but in pointer format (it's supposed to be an adddres)
+            )
+        else:
+            gl.glDrawArrays(
+                gl.GL_TRIANGLES,   # mode
+                0,              # starting index
+                self.nr_vertices # nr vertices or triangles? i think it's nr vertices
+            )
+    def bind_buffers(self):
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.vbo)
+        if self.indexed_drawing:
+            # print("binding ebo")
+            gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self.ebo)
+
+
 
 class Triangle(BaseMesh):
 
@@ -153,9 +197,12 @@ class Triangle(BaseMesh):
         """ we expect vertex data to come in the form of arrays """
 
         # vertex data for a triangle
-        default_vertices = [-0.5, -0.5, 0,  # lower-left
-                    0.5, -0.5, 0,   # lower-right
-                    0, 0.5, 0]      # top-center
+        # we need to check if it's ccw or cw
+        default_vertices = [
+            -0.5, -0.5, 0,  # lower-left
+            0.5, -0.5, 0,   # lower-right
+            0, 0.5, 0,      # top-center
+        ]
 
         default_uvs = [
             0.0, 0.0,
@@ -163,13 +210,21 @@ class Triangle(BaseMesh):
             0.5, 1.0,
         ]
 
-        default_normals = [0, 0, 1, # lower-left
-                0, 0, 1,    # lower-right
-                0, 0, 1]    # top-center
+        default_normals = [
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+        ]
 
-        default_colors = [1, 0, 0,
-                    0, 1, 0,
-                    0, 0, 1]
+        default_colors = [
+            1, 0, 0,
+            0, 1, 0,
+            0, 0, 1,
+        ]
+
+        indices = [
+            0,1,2
+        ]
 
         # vertices can not be None. if they are not provided nor specified in the flag
         # we need to use the default
@@ -181,4 +236,154 @@ class Triangle(BaseMesh):
 
         # super().__init__() same as BaseModel.__init__()
         # when calling methods within the class, we don't need to pass self.
-        super().__init__(vertices, uvs=uvs, normals=normals, colors=colors)
+        super().__init__(vertices, uvs=uvs, normals=normals, colors=colors, indices=indices)
+
+class Quad(BaseMesh):
+
+    def __init__(self, attribs = VertexAttrib.ALL,*,
+            vertices = None,
+            uvs = None,
+            normals = None,
+            colors = None,
+            ):
+        """ we expect vertex data to come in the form of arrays """
+
+        default_vertices = [
+            -0.5, -0.5, 0,  # bottom left
+            0.5, -0.5, 0,   # bottom right
+            -0.5, 0.5, 0,   # top left
+            0.5, 0.5, 0,    # top right
+        ]
+
+        default_uvs = [
+            0.0, 0.0,   # bottom left
+            1.0, 0.0,   # bottom right
+            0.0, 1.0,   # top left
+            1.0, 1.0,   # top right
+        ]
+
+        default_normals = [
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+        ]
+
+        default_colors = [
+            1, 0, 0,
+            0, 1, 0,
+            0, 0, 1,
+            1, 1, 0,
+        ]
+
+        indices = [
+            0,1,2,
+            1,3,2,
+        ]
+
+        # vertices can not be None. if they are not provided nor specified in the flag
+        # we need to use the default
+        vertices = default_vertices if (vertices is None) else vertices
+
+        uvs = default_uvs if (uvs is None and attribs & VertexAttrib.UV) else uvs
+        normals = default_normals if (normals is None and attribs & VertexAttrib.NORMAL) else normals
+        colors = default_colors if (colors is None and attribs & VertexAttrib.COLOR) else colors
+
+        # super().__init__() same as BaseModel.__init__()
+        # when calling methods within the class, we don't need to pass self.
+        super().__init__(vertices, uvs=uvs, normals=normals, colors=colors, indices=indices)
+
+class Cube(BaseMesh):
+
+    def __init__(self, attribs = VertexAttrib.ALL,*,
+            vertices = None,
+            uvs = None,
+            normals = None,
+            colors = None,
+            ):
+        """ we expect vertex data to come in the form of arrays """
+
+        default_vertices = [
+            # front
+            -0.5, -0.5, 0.5,  # bottom left
+            0.5, -0.5, 0.5,   # bottom right
+            -0.5, 0.5, 0.5,   # top left
+            0.5, 0.5, 0.5,    # top right
+            # back
+            -0.5, -0.5, -0.5,  # bottom left
+            0.5, -0.5, -0.5,   # bottom right
+            -0.5, 0.5, -0.5,   # top left
+            0.5, 0.5, -0.5,    # top right
+        ]
+
+        default_uvs = [
+            # front
+            0.0, 0.0,   # bottom left
+            1.0, 0.0,   # bottom right
+            0.0, 1.0,   # top left
+            1.0, 1.0,   # top right
+            # back
+            0.0, 0.0,   # bottom left
+            1.0, 0.0,   # bottom right
+            0.0, 1.0,   # top left
+            1.0, 1.0,   # top right
+        ]
+
+        default_normals = [
+            # front
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+            # back
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+        ]
+
+        default_colors = [
+            # front
+            1, 0, 0,
+            0, 1, 0,
+            0, 0, 1,
+            1, 1, 0,
+            # front
+            1, 0, 0,
+            0, 1, 0,
+            0, 0, 1,
+            1, 1, 0,
+        ]
+
+        indices = [
+            # frontal face
+            0,1,2,
+            1,3,2,
+            # right face
+            1,5,3,
+            5,7,3,
+            # back face
+            5,4,7,
+            4,6,7,
+            # left face
+            4,0,6,
+            0,2,6,
+            # top face
+            2,3,6,
+            3,7,6,
+            # bottom face
+            0,4,1,
+            1,4,5,
+        ]
+
+        # vertices can not be None. if they are not provided nor specified in the flag
+        # we need to use the default
+        vertices = default_vertices if (vertices is None) else vertices
+
+        uvs = default_uvs if (uvs is None and attribs & VertexAttrib.UV) else uvs
+        normals = default_normals if (normals is None and attribs & VertexAttrib.NORMAL) else normals
+        colors = default_colors if (colors is None and attribs & VertexAttrib.COLOR) else colors
+
+        # super().__init__() same as BaseModel.__init__()
+        # when calling methods within the class, we don't need to pass self.
+        super().__init__(vertices, uvs=uvs, normals=normals, colors=colors, indices=indices)

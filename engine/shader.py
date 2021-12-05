@@ -30,3 +30,7 @@ class Shader:
         frag_shader = compileShader(fragment_src, gl.GL_FRAGMENT_SHADER)
         self.program = compileProgram(vertex_shader, frag_shader)
 
+    def use(self):
+        gl.glUseProgram(self.program)
+
+
