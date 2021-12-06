@@ -92,6 +92,10 @@ class Transform:
         # camera position, target, up
         # view = pyrr.matrix44.create_look_at()
 
+        # adding support to traverse the hierarchy:
+        self.parent = None
+        self.children = []
+
     # internal getters
     @property
     def position(self):

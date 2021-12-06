@@ -69,17 +69,17 @@ glUniformMatrixNfv = {
 # we don't call this directly from the mesh_render
 # we need to perform the 'switch' statement for other cases first
 def gl_uniform(loc, *values):
-    print("entry point of glUniform loc={} values={}".format(loc,values))
+    # print("entry point of glUniform loc={} values={}".format(loc,values))
     """ up to four scalars either ints or floats """
     if isinstance(values[0], int):
-        print("calling int version of glUniform for values {} len={}".format(values, len(values)))
+        # print("calling int version of glUniform for values {} len={}".format(values, len(values)))
         glUniformXi[len(values)](loc, *values)
         # if (len(values) == 1):
         #     gl.glUniform1i(loc, values[0])
         # else:
         #     glUniformXi[len(values)](loc, *values)
     elif isinstance(values[0], float):
-        print("calling float version of glUniform for values {} len={}".format(values, len(values)))
+        # print("calling float version of glUniform for values {} len={}".format(values, len(values)))
         glUniformXf[len(values)](loc, *values)
     else:
         print("couldn't determine the type for glUniform for values {}".format(values))

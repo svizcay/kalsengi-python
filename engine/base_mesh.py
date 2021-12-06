@@ -15,10 +15,11 @@ import OpenGL.GL as gl
 
 # import ctypes
 
+from .component import Component
 from . import vertex_attrib_loc
 from . import VertexAttrib
 
-class BaseMesh:
+class BaseMesh(Component):
 
     # explanaition of:
     # - positional argument

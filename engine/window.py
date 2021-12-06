@@ -37,6 +37,7 @@ from math import sin
 
 from .base_mesh import BaseMesh, Triangle, Quad, Cube
 from .shader import Shader
+from .material import Material
 from .mesh_renderer import MeshRenderer
 from .texture import Texture
 from .framebuffer import Framebuffer
@@ -44,8 +45,10 @@ from . import VertexAttrib
 from .camera import Camera
 from .free_fly_camera import FreeFlyCamera
 from .transform import Transform
+from .game_object import GameObject
 from .gui import TransformGUI
 from .gui import CameraGUI
+from .gui import MaterialGUI
 
 
 # we are not getting this callback executed anymore
@@ -134,6 +137,10 @@ class Window:
         scene = []
 
         # floor
+        self.plane_go = GameObject()
+        self.plane_go.name = "floor"
+        self.plane_go.add_component(Quad())
+
         self.plane_object = {}
         self.plane_object["mesh"] = Quad()
 
@@ -169,10 +176,14 @@ class Window:
         )
 
         # self.cube_object["shader"] = Shader("engine/shaders/vertex/simple_mvp.glsl", "engine/shaders/fragment/texture_color.glsl")
-        self.cube_object["shader"] = Shader(
+        shader = Shader(
             "engine/shaders/vertex/simple_mvp_uv.glsl",
-            "engine/shaders/fragment/mix_textures.glsl"
+            # "engine/shaders/fragment/mix_textures.glsl"
+            "engine/shaders/fragment/texture_uniform_color.glsl"
         )
+        self.material = Material(shader)
+        self.material_gui = MaterialGUI(self.material)
+        self.cube_object["shader"] = shader
         # self.cube_object["shader"] = Shader("engine/shaders/vertex/simple_mvp.glsl", "engine/shaders/fragment/flat_time_color.glsl")
 
         self.plane_object["renderer"] = MeshRenderer(
@@ -385,6 +396,8 @@ class Window:
         # setting size 0 = autofit
         imgui.set_next_window_size(0, 0)
         imgui.begin("Hierarchy")
+        self.material_gui.draw()
+        imgui.separator()
         # imgui.text("test text")
         imgui.text("scene window focused = {}".format(self.scene_imgui_window_focused))
         self.cube_object["transform-gui"].draw()
