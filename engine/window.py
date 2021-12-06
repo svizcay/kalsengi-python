@@ -46,6 +46,7 @@ from .camera import Camera
 from .free_fly_camera import FreeFlyCamera
 from .transform import Transform
 from .game_object import GameObject
+from .fps_counter import FPSCounter
 from .gui import TransformGUI
 from .gui import CameraGUI
 from .gui import MaterialGUI
@@ -256,6 +257,12 @@ class Window:
             # imgui.get_io().fonts.get_tex_data_as_rgba32() this is giving me error when calling imgui.render()
             self.scene_imgui_window_focused = False
 
+        self.fps_counter = FPSCounter()
+        # enable vsync
+        self.vsync = True
+        glfw.swap_interval(1)
+
+
     def resize_window(self, width, height):
         print("resizing window to {}x{}".format(width, height))
         self.width = width
@@ -410,6 +417,13 @@ class Window:
             self.clear_color = clear_color
         imgui.end()
 
+        imgui.begin("Info")
+        imgui.text("FPS: {}".format(self.fps_counter.fps))
+        changed, self.vsync = imgui.checkbox("vsync", self.vsync)
+        if changed:
+            glfw.swap_interval(self.vsync)
+        imgui.end()
+
         # # pop up example
         # imgui.begin("Example: simple popup")
 
@@ -538,6 +552,8 @@ class Window:
 
             self.current_time = glfw.get_time()
             self.delta_time = self.current_time - self.previous_time
+
+            self.fps_counter.update(self.current_time, self.delta_time)
 
             self.process_input()
 
