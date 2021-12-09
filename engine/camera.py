@@ -1,8 +1,17 @@
 import pyrr
 
+from .component import Component
 from .transform import Transform
 
-class Camera:
+
+# camera is a component.
+# clients should not construct components by themselves
+# they can only 'add' them to gameObjects, i.e. the component's transform
+# it's take from the gameObject.
+# the component needs to belong to a gameObject as well
+
+class Camera(Component):
+
 
     # we would like to have the right values for aspect ratio
     # and we dont want to pass them explicitly
@@ -19,7 +28,10 @@ class Camera:
 
     # we should treat the aspect ratio differently
     # and make sure it's always right with the size of the rendering viewport
-    def __init__(self, aspect_ratio = 16/9):
+    def __init__(self, game_object, aspect_ratio = 16/9):
+        print("camera ctor parameters go={}, aspect_ratio={}".format(game_object, aspect_ratio))
+        super().__init__(game_object)
+
         self._vfov = 60
         self._aspect_ratio = aspect_ratio
         self._near = 0.01
@@ -31,7 +43,9 @@ class Camera:
         # we are going to provide some utilities to set the camera
         # pos/orientation and then update the transform and view matrix
         # accordingly
-        self.transform = Transform()
+
+        # shortcut for now
+        self.transform = self.game_object.transform
 
         self._set_projection_matrix()
 

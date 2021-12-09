@@ -8,6 +8,8 @@ import imgui
 # integrator (backend for imgui)
 from imgui.integrations.glfw import GlfwRenderer
 
+import cv2
+
 # from testwindow import show_test_window
 # we need to let imgui create its context (nothing to do with opengl context)
 # the actual opengl context is created as always using glfw and we store the 'window' (opengl context ref)
@@ -64,6 +66,9 @@ def framebuffer_size_callback(context, width, height):
     window = glfw.get_window_user_pointer(context)
     window.resize_framebuffer(width, height)
 
+def cursor_position_callback(context, xpos, ypos):
+    print("cursor event: {}x{}".format(xpos, ypos))
+
 class Window:
     # new in python 3.5:
     # even though python doesn't enforce specifying the data type for parameters
@@ -76,7 +81,8 @@ class Window:
             raise Exception("glfw could not be initialized")
 
         full_screen = False
-        self.render_scene_to_window = False
+        self.render_scene_to_window = True
+        self.render_webcam = False
 
         # windowed
         if full_screen:
@@ -103,6 +109,15 @@ class Window:
         # maybe this needs to go before setting the context as current
         glfw.set_window_size_callback(self._context, window_size_callback)
         glfw.set_framebuffer_size_callback(self._context, framebuffer_size_callback)
+        # not working because of imgui
+        glfw.set_cursor_pos_callback(self._context, cursor_position_callback)
+
+        # capturing the curser (hiding it and constraining it to the center)
+        # it's annoying because we have no way to click imgui widgets nor to
+        # take the cursor out of the window to resize it.
+        # but it's used to provide unlimited cursor movement because the physical
+        # cursor never leaves the window but the virtual one can (like in unity)
+        # glfw.set_input_mode(self._context, glfw.CURSOR, glfw.CURSOR_DISABLED)
 
         glfw.make_context_current(self._context)
 
@@ -138,10 +153,11 @@ class Window:
         scene = []
 
         # floor
-        self.plane_go = GameObject()
-        self.plane_go.name = "floor"
-        self.plane_go.add_component(Quad())
+        #self.plane_go = GameObject("floor")
+        # self.plane_go.name = "floor"
+        #self.plane_go.add_component(Quad())
 
+        self.plane_go = GameObject("floor")
         self.plane_object = {}
         self.plane_object["mesh"] = Quad()
 
@@ -171,13 +187,14 @@ class Window:
         # shader = Shader("engine/shaders/vertex/simple_mvp_uv.glsl", "engine/shaders/fragment/texture_color.glsl")
         # self.shader = Shader("engine/shaders/vertex/simple_mvp.glsl", "engine/shaders/fragment/flat_time_color.glsl")
 
-        self.plane_object["shader"] = Shader(
+        self.plane_object["shader"] = Shader.from_file(
             "engine/shaders/vertex/simple_mvp.glsl",
-            "engine/shaders/fragment/flat_color_uniform.glsl"
+            # "engine/shaders/fragment/flat_color_uniform.glsl"
+            "engine/shaders/fragment/flat_color.glsl"
         )
 
         # self.cube_object["shader"] = Shader("engine/shaders/vertex/simple_mvp.glsl", "engine/shaders/fragment/texture_color.glsl")
-        shader = Shader(
+        shader = Shader.from_file(
             "engine/shaders/vertex/simple_mvp_uv.glsl",
             # "engine/shaders/fragment/mix_textures.glsl"
             "engine/shaders/fragment/texture_uniform_color.glsl"
@@ -197,15 +214,19 @@ class Window:
             self.cube_object["shader"]
         )
 
-        self.plane_object["transform"] = Transform()
-        self.plane_object["transform"].position = pyrr.Vector3([0, 0, -1])
-        self.plane_object["transform"].rotation = pyrr.Vector3([270, 0, 0])
-        self.plane_object["transform"].scale = pyrr.Vector3([10,10,10])
+        # self.plane_object["transform"] = Transform()
+        self.plane_go.transform.position = pyrr.Vector3([0, 0, -1])
+        self.plane_go.transform.rotation = pyrr.Vector3([270, 0, 0])
+        self.plane_go.transform.scale = pyrr.Vector3([10,10,10])
 
-        self.cube_object["transform"] = Transform()
-        self.cube_object["transform"].position = pyrr.Vector3([0, 0.5, 0])
+        # lets not create the transform directly but via gameObject
+        self.cube_go = GameObject("cube")
+        self.cube_go.transform.position = pyrr.Vector3([0, 0.5, 0])
+        # self.cube_object["transform"] = Transform()
+        # self.cube_object["transform"].position = pyrr.Vector3([0, 0.5, 0])
 
-        self.cube_object["transform-gui"] = TransformGUI(self.cube_object["transform"])
+        # self.cube_object["transform-gui"] = TransformGUI(self.cube_object["transform"])
+        self.cube_object["transform-gui"] = TransformGUI(self.cube_go.transform)
 
         # # setting up textures
         self.texture1 = Texture.from_image("img/ash_uvgrid01.jpg")
@@ -225,20 +246,21 @@ class Window:
 
         self.editor_scene_size = (890, 500)
 
-        # scene camera
-        self.camera = Camera(self.editor_scene_size[0]/self.editor_scene_size[1])
-        #self.camera_transform = Transform()
-        self.camera.transform.position = pyrr.Vector3([0, 1.7, 5])
+        print("creating scene camera gameObject")
+        self.camera_go = GameObject("scene camera")
+        self.camera = self.camera_go.add_component(Camera, self.editor_scene_size[0]/self.editor_scene_size[1])
+        self.camera_go.transform.position = pyrr.Vector3([0, 1.7, 5])
+        print("field of view: {}".format(self.camera.vfov))
+        print("**********")
         self.camera_gui = CameraGUI(self.camera)
-        self.camera_transform_gui = TransformGUI(self.camera.transform)
-        self.free_fly_camera = FreeFlyCamera(self.camera)
+        self.camera_transform_gui = TransformGUI(self.camera_go.transform)
+        self.free_fly_camera = FreeFlyCamera(self.camera_go.transform)
 
         # game camera
-        self.game_camera = Camera(self.editor_scene_size[0]/self.editor_scene_size[1])
-        # no need to create another transform. camera has an internal transform object
-        # self.game_camera_transform = Transform()
-        self.game_camera.transform.position = pyrr.Vector3([0, 1.7, 5])
-        self.game_camera_gui = CameraGUI(self.camera)
+        self.game_camera_go = GameObject("game camera")
+        self.game_camera = self.game_camera_go.add_component(Camera, self.editor_scene_size[0]/self.editor_scene_size[1])
+        self.game_camera_go.transform.position = pyrr.Vector3([0, 1.7, 5])
+        # self.game_camera_gui = CameraGUI(self.camera)
 
         # setting up frame bufffer for the editor scene
         self.scene_framebuffer = Framebuffer(*self.editor_scene_size)
@@ -262,6 +284,9 @@ class Window:
         self.vsync = True
         glfw.swap_interval(1)
 
+        # testing opencv
+        if self.render_webcam:
+            self.vid = cv2.VideoCapture(0)
 
     def resize_window(self, width, height):
         print("resizing window to {}x{}".format(width, height))
@@ -286,8 +311,10 @@ class Window:
         if (glfw.get_key(self._context, glfw.KEY_ESCAPE) == glfw.PRESS):
             # glfw.SetWindowShouldClose(self._context, true)
             glfw.set_window_should_close(self._context, True)
-        if self.scene_imgui_window_focused:
+        if self.scene_imgui_window_focused or self.render_scene_to_window:
             self.free_fly_camera.process_input(self._context, self.delta_time)
+        if (glfw.get_key(self._context, glfw.KEY_R) == glfw.PRESS):
+            self.plane_object["shader"].reload()
 
     def render_scene(self):
         # for each gameObject, activate its program and draw it
@@ -318,7 +345,7 @@ class Window:
         # draw plane
         self.plane_object["shader"].use()
         plane_object_mvp = pyrr.matrix44.multiply(
-            pyrr.matrix44.multiply(self.plane_object["transform"].model_mat, self.camera.transform.view_mat),
+            pyrr.matrix44.multiply(self.plane_go.transform.model_mat, self.camera.transform.view_mat),
             self.camera.projection)
         self.plane_object["renderer"].set_uniform("mvp", plane_object_mvp)
         self.plane_object["renderer"].render()
@@ -327,8 +354,11 @@ class Window:
         # self.texture1.bind()
         self.cube_object["shader"].use()
         cube_object_mvp = pyrr.matrix44.multiply(
-            pyrr.matrix44.multiply(self.cube_object["transform"].model_mat, self.camera.transform.view_mat),
+            pyrr.matrix44.multiply(self.cube_go.transform.model_mat, self.camera.transform.view_mat),
             self.camera.projection)
+        # cube_object_mvp = pyrr.matrix44.multiply(
+        #     pyrr.matrix44.multiply(self.cube_object["transform"].model_mat, self.camera.transform.view_mat),
+        #     self.camera.projection)
         self.cube_object["renderer"].set_uniform("mvp", cube_object_mvp)
         # we don't need to update the uniform (saying which texture unit to use)
         # but we need to make sure
@@ -355,15 +385,18 @@ class Window:
         # draw plane
         self.plane_object["shader"].use()
         plane_object_mvp = pyrr.matrix44.multiply(
-            pyrr.matrix44.multiply(self.plane_object["transform"].model_mat, self.game_camera.transform.view_mat),
+            pyrr.matrix44.multiply(self.plane_go.transform.model_mat, self.game_camera.transform.view_mat),
             self.game_camera.projection)
         self.plane_object["renderer"].set_uniform("mvp", plane_object_mvp)
         self.plane_object["renderer"].render()
 
         # draw cube
         self.cube_object["shader"].use()
+        # cube_object_mvp = pyrr.matrix44.multiply(
+        #     pyrr.matrix44.multiply(self.cube_object["transform"].model_mat, self.game_camera.transform.view_mat),
+        #     self.game_camera.projection)
         cube_object_mvp = pyrr.matrix44.multiply(
-            pyrr.matrix44.multiply(self.cube_object["transform"].model_mat, self.game_camera.transform.view_mat),
+            pyrr.matrix44.multiply(self.cube_go.transform.model_mat, self.game_camera.transform.view_mat),
             self.game_camera.projection)
         self.cube_object["renderer"].set_uniform("mvp", cube_object_mvp)
         self.texture1.bind()
@@ -410,7 +443,7 @@ class Window:
         self.cube_object["transform-gui"].draw()
         imgui.separator()
         imgui.text("scene camera")
-        self.camera_transform_gui.draw()
+        # self.camera_transform_gui.draw()
         self.camera_gui.draw()
         changed, clear_color = imgui.color_edit3("bg color", *self.clear_color)
         if changed:
@@ -488,12 +521,21 @@ class Window:
             #imgui.WINDOW_NO_COLLAPSE|
             #imgui.WINDOW_NO_RESIZE
         )
-        imgui.image(
-            self.game_framebuffer.render_texture.texture,
-            self.game_framebuffer.render_texture.width,
-            self.game_framebuffer.render_texture.height,
-            (0,1), (1,0)    # we invert the v in uv coords
-        )
+
+        if self.render_webcam:
+            imgui.image(
+                self.texture_webcam.texture,
+                self.texture_webcam.width,
+                self.texture_webcam.height,
+                (0,1), (1,0)    # we invert the v in uv coords
+            )
+        else:
+            imgui.image(
+                self.game_framebuffer.render_texture.texture,
+                self.game_framebuffer.render_texture.width,
+                self.game_framebuffer.render_texture.height,
+                (0,1), (1,0)    # we invert the v in uv coords
+            )
         imgui.end()
 
     def render_gui(self):
@@ -556,6 +598,9 @@ class Window:
             self.fps_counter.update(self.current_time, self.delta_time)
 
             self.process_input()
+            # additional checks
+            if self.plane_object["shader"].dirty:
+                self.plane_object["shader"].reload()
 
             if self.use_imgui:
                 self.impl.process_inputs()
@@ -564,6 +609,11 @@ class Window:
             gl.glClearColor(*self.clear_color, 1)# gray
             gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
 
+            # testing opencv
+            if self.render_webcam:
+                ret, frame = self.vid.read()
+                # cv2.imshow('frame', frame)
+                self.texture_webcam = Texture.from_opencv_mat(frame)
 
             if self.use_imgui:
                 # # # start new frame context
@@ -585,6 +635,10 @@ class Window:
             glfw.poll_events()
 
             self.previous_time = self.current_time
+
+        # opencv
+        if self.render_webcam:
+            self.vid.release()
 
         if self.use_imgui:
             self.impl.shutdown()

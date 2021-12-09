@@ -1,5 +1,8 @@
 from engine import Window, Triangle
 
+# testing opencv
+# import cv2
+
 # notes regarding qt for python
 # pyQt developed by 3rd party company. license is GPL (more restrictive than LGPL)
 # pySide is the official binding but it was lagging behind (no so much now). License is LGPL (less restrictive).
@@ -15,8 +18,8 @@ from engine import Window, Triangle
 
 if __name__ == "__main__":
 
-    # window = Window(1920, 1080, "k a l s e n g i (python)")
+    # # window = Window(1920, 1080, "k a l s e n g i (python)")
     window = Window(1024, 768, "k a l s e n g i (python)")
-
     window.run()
+
     print("closing application")

@@ -1,5 +1,7 @@
 import pyrr
 import math
+import numpy as np
+import sys, traceback
 
 # A*B
 # to multiply matrices with pyrr, only use pyrr.matrix44.multiply(B, A)
@@ -54,7 +56,10 @@ class Transform:
     # whenever those values are set, we dirty the matrices.
     # the renderers read those matrices and if the values are dirtied,
     # they are recalculated
-    def __init__(self, pos = None, rotation = None, scale = None):
+    def __init__(self, game_object = None, pos = None, rotation = None, scale = None):
+        # a tranform can not exists without a gameObject
+        print("creating transform for gameObject={}".format(game_object))
+        self.game_object = game_object
         # 'raw' values which are expected to be set by clients
         # we are going to use properties so we can update the internal matrices accordingly
         # most pyrr functions work on pyrr.VectorX objects.
@@ -62,6 +67,14 @@ class Transform:
         self._position = pos if pos is not None else pyrr.Vector3([0, 0, 0])
         self._rotation = rotation if rotation is not None else pyrr.Vector3([0, 0, 0])
         self._scale = scale if scale is not None else pyrr.Vector3([1, 1, 1])
+
+        # let's also provide shortcuts for
+        # right, up, forward.
+        # should we allow setting them?
+        # i dont think so, better to provide lookAt method that set thems all together
+        self.right = pyrr.Vector3([1, 0, 0])
+        self.up = pyrr.Vector3([0, 1, 0])
+        self.forward = pyrr.Vector3([0, 0, 1])
 
 
         self._translation_dirty = True
@@ -112,6 +125,8 @@ class Transform:
     # internal setters
     @position.setter
     def position(self, value):
+        # print("dirtying position to {}".format(value))
+        # traceback.print_stack()
         self._position = value
         self._translation_dirty = True
         self._model_dirty = True
@@ -158,9 +173,42 @@ class Transform:
 
     @property
     def view_mat(self):
+        # print("getting view matrix dirty={}".format(self._view_dirty))
         if (self._view_dirty):
             self._set_view_matrix()
         return self._view_mat
+
+    # utility to set the rotation matrix)
+    def look_at(self, eye_pos, target, up):
+        # local positive z
+        forward = (eye_pos - target)
+        # forward = forward / np.sqrt(np.sum(forward**2))
+        forward = pyrr.vector.normalise(forward)
+        right = pyrr.vector3.cross(up, forward)
+        up = pyrr.vector3.cross(forward, right)
+        # this define us a rotation matrix
+        # but we need to update the internal eurler angles
+        # and then call _set_rotation_matrix
+        # setting the rotation matrix is easy, but getting the
+        # corresponding euler angles is not.
+
+        # trying what was said in stackoverflow
+        # the one citing wikipedia
+        # https://stackoverflow.com/questions/11514063/extract-yaw-pitch-and-roll-from-a-rotationmatrix
+        # roll : (rotation around z) phi
+        # pitch : (look up and down) thetha
+        # yaw: psi (rotation around up) (look left and right)
+
+        # stackoverflow
+        # phi (roll) = arctan2(A31, A32)
+        # theta (pitch) = arccos(A33)
+        # psi (yaw) = -arctan2(A13,A23)
+        yaw = np.arcsin(self._rotation_mat[2][0])   # sin(b) = A13
+        cos_beta = np.cos(yaw)
+        pitch = np.arccos(self._rotation_mat[2][2]/cos_beta)
+        roll = np.arccos(self._rotation_mat[0][0]/cos_beta)
+
+
 
     # private methods
     def _set_translation_matrix(self):
@@ -168,6 +216,8 @@ class Transform:
         self._translation_dirty = False
 
     def _set_rotation_matrix(self):
+        # print("updating rotation matrix of {} dirty={}".format(self.game_object.name, self._rotation_dirty))
+        # traceback.print_stack()
         # rot_x = pyrr.Matrix44.from_x_rotation(self._rotation[0])
         # rot_y = pyrr.Matrix44.from_y_rotation(self._rotation[1])
         # rot_z = pyrr.Matrix44.from_z_rotation(self._rotation[2])
@@ -202,7 +252,7 @@ class Transform:
         individual_y = pyrr.matrix44.create_from_y_rotation(yaw)
         individual_z = pyrr.matrix44.create_from_z_rotation(roll)
 
-        # transposing using numpy .T
+        # transposing form pyrr be col-major using numpy .T
         individual_x = individual_x.T
         individual_y = individual_y.T
         individual_z = individual_z.T
@@ -232,6 +282,37 @@ class Transform:
         self._rotation_mat = pyrr.matrix44.multiply(
                 pyrr.matrix44.multiply(individual_z, individual_y),
                 individual_x)
+        # print("rot mat x")
+        # print(self._rotation_mat)
+        # # trying to print every individual element to see if we are accessing them correctly
+        # for row in range(4):
+        #     for col in range(4):
+        #         print("[{},{}]={}".format(row, col, self._rotation_mat[row][col]))
+        #     print()
+        # print()
+        # since we interpret the matrix as stored by cols,
+        # to get the matematical position of A(i,j) we do Mat[col, row]
+        # print("checking if extraction euler angles from rot matrix is doable")
+        # print("original pitch={}, yaw={}, roll={}".format(pitch, yaw, roll))
+        # phi (roll) = arctan2(A31, A32)
+        # theta (pitch) = arccos(A33)
+        # psi (yaw) = -arctan2(A13,A23)
+        # roll = 0#np.arctan2(self._rotation_mat[0][2], self._rotation_mat[1][2])
+        # pitch = np.arccos(self._rotation_mat[2][2])
+        # yaw = -np.arctan2(self._rotation_mat[2][0], self._rotation_mat[2][1])
+        yaw = np.arcsin(self._rotation_mat[2][0])   # sin(b) = A13
+        cos_beta = np.cos(yaw)
+        pitch = np.arccos(self._rotation_mat[2][2]/cos_beta)
+        roll = np.arccos(self._rotation_mat[0][0]/cos_beta)
+
+        # print("original pitch={}, yaw={}, roll={}".format(pitch, yaw, roll))
+
+
+        # i should update the right, up and forward accordingly
+        # with pyrr: pyrr.matrix44.apply_to_vector(A, v)
+        self.right = pyrr.matrix44.apply_to_vector(self._rotation_mat, pyrr.Vector3([1, 0, 0]))
+        self.up = pyrr.matrix44.apply_to_vector(self._rotation_mat, pyrr.Vector3([0, 1, 0]))
+        self.forward = pyrr.matrix44.apply_to_vector(self._rotation_mat, pyrr.Vector3([0, 0, 1]))
 
         self._rotation_dirty = False
 
@@ -252,6 +333,8 @@ class Transform:
         self._model_dirty = False
 
     def _set_view_matrix(self):
+        # print("setting view matrix t={} r={} s={} m={}".format(self._translation_dirty, self._rotation_dirty, self._scale_dirty, self._model_dirty))
+        # traceback.print_stack()
         if (self._translation_dirty):
             self._set_translation_matrix()
         if (self._rotation_dirty):
