@@ -1,3 +1,5 @@
+import imgui
+
 from .transform import Transform
 
 # we need to take the decision whether we use

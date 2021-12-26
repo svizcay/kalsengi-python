@@ -39,6 +39,7 @@ class FreeFlyCamera:
         translation_changed = False
 
         if (glfw.get_key(glfw_context, glfw.KEY_LEFT_CONTROL) == glfw.PRESS):
+            # using world space directions
             right = pyrr.Vector3([1, 0, 0])
             up = pyrr.Vector3([0, 1, 0])
             forward = pyrr.Vector3([0, 0, 1])
@@ -65,7 +66,7 @@ class FreeFlyCamera:
         # DO NOT set the position if delta_pos is zero!
         # otherwise it will trigger generating the matrices all over again
         if translation_changed:
-            self.transform.position = self.transform.position + delta_pos
+            self.transform.local_position = self.transform.local_position + delta_pos
 
         # what about rotations?
         # should they be local or global?
@@ -112,5 +113,6 @@ class FreeFlyCamera:
             rotation_changed = True
 
         if rotation_changed:
-            self.transform.rotation = self.transform.rotation + delta_rot
+            # self.transform.rotation = self.transform.rotation + delta_rot
+            self.transform.rotate(delta_rot)
 

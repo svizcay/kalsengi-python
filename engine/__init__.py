@@ -37,5 +37,6 @@ vertex_attrib_loc = {
 
 from .window import Window
 from .base_mesh import Triangle
+from .scene import Scene
 
 

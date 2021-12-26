@@ -1,0 +1,2 @@
+class ComponentGUI:
+    pass

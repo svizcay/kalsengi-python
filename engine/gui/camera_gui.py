@@ -1,7 +1,9 @@
 import imgui
 import pyrr
 
-class CameraGUI:
+from .component_gui import ComponentGUI
+
+class CameraGUI(ComponentGUI):
 
     def __init__(self, camera):
         self.camera = camera

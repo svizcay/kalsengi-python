@@ -3,52 +3,6 @@ import math
 import numpy as np
 import sys, traceback
 
-# A*B
-# to multiply matrices with pyrr, only use pyrr.matrix44.multiply(B, A)
-# never use '*'.
-# example:
-# we want Projection * Model
-# therefore we use pyrr.matrix44.multiply(Model, Projection)
-
-################################
-# # for more than 2 matrices:
-#   t1 = pyrr.matrix44.create_from_translation(pyrr.Vector3([1, 1, 1]))
-#   t2 = pyrr.matrix44.create_from_translation(pyrr.Vector3([10, 10, 10]))
-#   s = pyrr.matrix44.create_from_scale(pyrr.Vector3([2, 2, 2]))
-#
-#   # I want (t2 * s * t1) * v
-#   # i.e move the vector 1 at each direciton
-#   # scale it by 2
-#   # move it extra 10 units at each direction
-#
-#   print("t1 (move +1) = {}".format(t1))
-#   print("s (scale x2) = {}".format(s))
-#   print("t2 (move +10) = {}".format(t2))
-#
-#   print("t1 (move +1) = {}".format(t1))
-#
-#   st1 = pyrr.matrix44.multiply(t1, s)
-#   t2st1 = pyrr.matrix44.multiply(st1, t2)
-#   therefore:
-#   t2st1 = multiply(multiply(t1,s),t2)
-#   remember that mvp its actually p * v * m
-#   in pyrr, to make that product
-#   mvp = multiply(multiply(m, v), p)   # p * v * m
-#
-#   for affine transformations:
-#   affine = T * R * S * v
-#   the product in pyrr should be
-#   affine = multiply(multiply(S,R), T)
-#
-#   print("st1 (move +1 then scale x2) = {}".format(st1))
-#   print("t2st1 (move +1 then scale x2 then move +10) = {}".format(t2st1))
-################################
-# P * V * M * v
-
-
-# A*v
-# with pyrr: pyrr.matrix44.apply_to_vector(A, v)
-
 class Transform:
 
     # clients don't set matrices
@@ -57,260 +11,419 @@ class Transform:
     # the renderers read those matrices and if the values are dirtied,
     # they are recalculated
     def __init__(self, game_object = None, pos = None, euler_angles = None, scale = None):
+        # following unity's design
         # a tranform can not exists without a gameObject
-        print("creating transform for gameObject={}".format(game_object))
         self.game_object = game_object
 
-        # internal data
-        self._position = pos if pos is not None else pyrr.Vector3([0, 0, 0])
+        # internal local data
+        # we don't want users to set values directly so we make them private.
+        # public method, apart of updating local values will also dirty some flags
+        self._local_position = pos if pos is not None else pyrr.Vector3([0, 0, 0])
+        # if we are not going to keep track of euler angles, maybe we should not store them
+        # self._local_euler_angles = euler_angles if euler_angles is not None else pyrr.Vector3([0, 0, 0])
+        # identity quaternion = (1,0,0,0)
+        # note that that is the resulting quaternion after applying cos/sin etc.
+        # to get it, we multiply the rotations obtained from 0 degrees along x direction; 0 along y and 0 along z
+        self._local_rotation = Transform.quaternion_from_euler(euler_angles)  if euler_angles is not None else [1, 0, 0, 0]
+        self._local_scale = scale if scale is not None else pyrr.Vector3([1, 1, 1])
 
-        self._euler_angles = euler_angles if euler_angles is not None else pyrr.Vector3([0, 0, 0])
-        # for each euler angle:
-        # if the euler angle is zero -> whatever is the direction we use, the quaternion is (1, 0, 0, 0)
-        self.rotation = Transform.quaternion_from_euler(self._euler_angles) # identity quaternion
-        self._scale = scale if scale is not None else pyrr.Vector3([1, 1, 1])
-
-        # internal matrices
+        # internal matrices for individual affine transformations
+        # these are LOCAL matrices.
+        # there should not be any reason that someone want's to get them individually.
+        # these are kept here so we can reconstruct the correct local model and view matrix every time.
+        # most clients of the class will work only with final model and view matrices (which involve processing all the tree structure)
+        # if we use dirty flags, it's because we are caching the representation (the matrices in this case)
+        # UPDATE: even though they are not needed from a user point,
+        # we might want to access them to debug them in the inspector
         self._translation_dirty = True
         self._rotation_dirty = True
         self._scale_dirty = True
 
-        self._model_dirty = True
-        self._view_dirty = True
+        # these are still internal
+        # but they are actually read by clients of this class
+        # we are going to disable them by now.
+        # they are going to be use only when we cache final model and view matrices
+        # let's do this later. it's taking to long.
+        # we need to do it at some point though!!
+        # self._model_dirty = True    # they get dirty when either local model matrix changed or when parent's model changed
+        # self._view_dirty = True
+        # local versions. do we actually need to local view??
+        self._local_model_dirty = True
+        self._local_view_dirty = True
 
-        # directions (they should be extracted from the model matrix
+        # directions
+        # in unity they read/write but let's make them read-only for the moment.
+        # or to be set all together with some sort of lookAt method or any method where the 3 axis are given simultaneously
+        # they should be extracted from the rotation matrix.
+        # once we get the rotation matrix based obtained from the local quaternion,
+        # we should update this directions
+        # since they might be dirty, we need to create a property for its getter
+        # as everything else that can be dirtied
+        # in our engine, we are going to use right hand rule.
+        # positive x (right): thumb
+        # positive y (up): index
+        # positive z (forward): middle finger
+        # should we mark them as dirty they dependent only on the model matrix?
+        # let's work only with the model_dirty flag by now
+        # self._right_dirty = True
+        # self._up_dirty = True
+        # self._forward_dirty = True
         # self.right = pyrr.Vector3([1, 0, 0])
         # self.up = pyrr.Vector3([0, 1, 0])
         # self.forward = pyrr.Vector3([0, 0, 1])
 
-        ### # test for generating matrices and quaternion form euler angles -> success
-        print("**********************")
-        print("testing rotation matrix from quaternion")
-        ### # euler_rotation = [0, 90, 0] # 90 degrees yaw direction (lateral view)
-        euler_rotation = [10, 20, 30] # 90 degrees yaw direction (lateral view)
-        print("euler = {}".format(euler_rotation))
-        quaternion = Transform.quaternion_from_euler(euler_rotation)
-        rotation_matrix = Transform.matrix_from_quaternion(quaternion)
-        resulting_euler = Transform.euler_from_quaternion(quaternion)
-        print("euler back = {}".format(resulting_euler))
-        exit()
-        ### # testing values
-        ### print("rotation matrix")
-        print(rotation_matrix)
-        ### print("rotating x")
-        ### print(pyrr.matrix44.apply_to_vector(rotation_matrix, pyrr.Vector3([1, 0, 0])))
-        ### print("rotating y")
-        ### print(pyrr.matrix44.apply_to_vector(rotation_matrix, pyrr.Vector3([0, 1, 0])))
-        ### print("rotating z")
-        ### print(pyrr.matrix44.apply_to_vector(rotation_matrix, pyrr.Vector3([0, 0, 1])))
-        exit()
-
-        ### print("using only rotation matrices:")
-        ### roll = math.radians(euler_rotation[2])
-        ### pitch = math.radians(euler_rotation[0])
-        ### yaw = math.radians(euler_rotation[1])
-        ### individual_x = pyrr.matrix44.create_from_x_rotation(pitch)
-        ### individual_y = pyrr.matrix44.create_from_y_rotation(yaw)
-        ### individual_z = pyrr.matrix44.create_from_z_rotation(roll)
-        ### # transpose pyrr rotation matrices
-        ### individual_x = individual_x.T
-        ### individual_y = individual_y.T
-        ### individual_z = individual_z.T
-        ### rotation_matrix_old = pyrr.matrix44.multiply(
-        ###         pyrr.matrix44.multiply(individual_z, individual_y),
-        ###         individual_x)
-        ### print(rotation_matrix_old)
-        ### print("rotating x")
-        ### print(pyrr.matrix44.apply_to_vector(rotation_matrix_old, pyrr.Vector3([1, 0, 0])))
-        ### print("rotating y")
-        ### print(pyrr.matrix44.apply_to_vector(rotation_matrix_old, pyrr.Vector3([0, 1, 0])))
-        ### print("rotating z")
-        ### print(pyrr.matrix44.apply_to_vector(rotation_matrix_old, pyrr.Vector3([0, 0, 1])))
-        ### exit()
-        ### # end test -> sucess
-
-        # print("testing translation matrix numpy order")
-        # it seems numpy data is layered by rows
-        # if matrix =   | a b c |
-        #               | d e f |
-        #               | f g h |
-        # then, that would be created in numpy as:
-        # mat = np.array( [a,b,c], [d,e,f], [g,h,i] )
-        # and the linear iteration will also go for rows
-        # for idx, x in np.ndenumerate(arr):
-        # idx is a tuple where idx[0] is the row and idx[1] is the col (x is the actual value)
-        # np_translation_matrix = pyrr.matrix44.create_from_translation(pyrr.Vector3([1, 2, 3]))
-        # pyrr will put the translation in the last ROW of the numpy matrix
-        # which can be interpreted as well as a matrix stored by cols, i.e
-        # instead of considering the last element of the numpy matrix as a row,
-        # we can consider it as a col.
-        # the way pyrr does it is as follows:
-        # - create an identity 4x4 matrix
-        # - set mat[3, 0:3] = vec[:3]
-        # which also works for row major multiplication when data is considered to be layout
-        # by rows
-        # print(np_translation_matrix)
-        # for idx, x in np.ndenumerate(np_translation_matrix):
-        #     print("T[{},{}]={}".format(idx[0], idx[1], x))
-        # for i in range len(np_translation_matrix):
-        #     for j in range len(np_translation_matrix[i]):
-        #         print("T[{},{}]={}".format(i, j, np_translation_matrix[i, j]))
-        #     print("")
-        # print("")
-        # exit()
-
-        # 'raw' values which are expected to be set by clients
-        # we are going to use properties so we can update the internal matrices accordingly
-        # most pyrr functions work on pyrr.VectorX objects.
-        # and pyrr.Vector3 is constructed from a python array.
-
-        # self._rotation = rotation if rotation is not None else pyrr.Vector3([0, 0, 0])
-
-        # let's also provide shortcuts for
-        # right, up, forward.
-        # should we allow setting them?
-        # i dont think so, better to provide lookAt method that set thems all together
-
-        # the quaternion is going to be the actual internal data and not the euler angles
-        # we were calling until now 'rotation' to the vec3 representing the euler angles.
-        # testing our own quaternion
-        # angle (scalar), x,y,z (axis)
-        # the actual versor is constructed as follows (in radians):
-        # making a 'versor' is similar to making a rotation matrix based on some euler angles
-        # qo = cos(angle/2)
-        # q1 = sin(angle/2) * x
-        # q2 = sin(angle/2) * y
-        # q3 = sin(angle/2) * z
-        # the resulting versor needs to have norm=1
-
-
-        # we are going to keep track of the following dirty matrices
-        # translation, rotation, scale, model, view
-
-        # internal matrices which are only read for rendering
-        # we need:
-        # - individual translation, rotation and scale matrices
-        # - model matrix = translation * rotation * scale
-        # - 'view' matrix which is the inverse of the model
-        # we could also have utilities to set them as lookat
-        # maybe we might not want to calculate inverse matrices all the time
-        # and we should do it only when they are requested and they are dirty
-
-        # to multiply transformations we can use the regular '*' but that doesn't work in pygmae.
-        # for pygame, use '@' as operator for matrix multiplication.
-        # another alternative is to use pyrr multiplecation method that takes two matrices: pyrr.matrix44.multiply(a,b)
-
-        # view matrix
-        # takes 3 pyrr.Vector3 (which were constructed from python arrays):
-        # camera position, target, up
-        # view = pyrr.matrix44.create_look_at()
-
-        # adding support to traverse the hierarchy:
+        # adding support to traverse the tree hierarchy:
         self.parent = None
         self.children = []
 
     # internal getters
     @property
     def position(self):
-        return self._position
+        # we need to think whether we are going to cache the global position
+        # or if we are going to calculate it every time based "updated" values
+        # for now, let's go for the second.
+        # how expensive is to 'get' the parent model_mat? should we also cache it?
+        model_matrix = self.parent.model_mat if self.parent is not None else pyrr.matrix44.create_identity()
+        # it's more convenient to return a pyrr.Vector3 object so we can access x,y,z
+        # the problem here is we are creating a new object every time we read this value
+        # we should totally work in caching the result
+        return pyrr.Vector3(pyrr.matrix44.apply_to_vector(model_matrix, self._local_position))
 
+    # in which cases we would like to get the rotation (in quaternion) of a gameObject?
+    # a) when we want to get poses and then interpolate between them
+    # how do we get the final pose (global rotation)?
+    # does it matter the local position and scale?
+    # do parents' position and scale matters?
+    # a) i don't think so. we should get only the final parent rotation and then multiply it by the local
     @property
     def rotation(self):
-        return self._rotation
+        # same as for position we will return local one for now
+        # return self.local_rotation
+        parent_rotation = self.parent.rotation if self.parent is not None else [1, 0, 0, 0] # identity quaternion
+        return Transform.quaternion_multiply(parent_rotation, self._local_rotation)
+
+    # when are we actually supposed to get final 'scale'??
+    # unity doesn't return this value because it's not always right to reprenset final
+    # scale with a vec3, but with a matrix
+    # lossyScale tries to return a vec3 representing the final scale but it's not exactly the same
+    # maybe we don't need to at all set/read a final scale and we can work well just with model matrices and local scales.
+    # @property
+    # def scale(self):
+    #     # same as for position we will return local one for now
+    #     return self.local_scale
 
     @property
-    def scale(self):
-        return self._scale
+    def local_position(self):
+        return self._local_position
 
-    # internal setters
+    @property
+    def local_rotation(self):
+        return self._local_rotation
+
+    @property
+    def local_scale(self):
+        return self._local_scale
+
+    # we need to add the property decorator once we manage to implement reading euler angles from quaternion
+    @property
+    # to convert from rotation matric to euler angles
+    # http://eecs.qmul.ac.uk/~gslabaugh/publications/euler.pdf
+    def local_euler_angles(self):
+        if (self._rotation_dirty):
+            self._update_rotation_matrix()
+        # this is the M[1,3] of the mathematical matrix (1st row, 3 col)
+        sin_beta = self._rotation_mat[2,0]
+        sin_beta = max(min(sin_beta,1),-1)
+        y_rot_rad = math.asin(sin_beta)
+        y_rot = math.degrees(y_rot_rad)
+
+        cos_beta = math.cos(y_rot_rad)
+
+        # i need to change the order of rotations so it's z in the middle
+
+        # if not math.isclose(cos_beta, 0):
+        if not math.isclose(cos_beta, 0):
+            # gamma (z rot) is related to the matrix as
+            # M[1,2]/M[1,1] = -tan(gamma)
+            z_rot_rad = -math.atan2(self._rotation_mat[1,0]/cos_beta, self._rotation_mat[0,0]/cos_beta)
+            z_rot = math.degrees(z_rot_rad)
+
+            # alpha (x rot) is related to the matrix as
+            # M[2,3]/M[3,3] = -tan(alpha)
+            x_rot_rad = -math.atan2(self._rotation_mat[2,1]/cos_beta, self._rotation_mat[2,2]/cos_beta)
+            x_rot = math.degrees(x_rot_rad)
+            self.last_euler_angle_z = z_rot
+        else:
+            # fix one of the angles to any value
+            z_rot = self.last_euler_angle_z
+            # x = atan(R21, R22) - z
+            x_rot_rad = math.atan2(self._rotation_mat[0,1], self._rotation_mat[1,1]) - z_rot
+            x_rot = math.degrees(x_rot_rad)
+        # i just need to take into account the special case
+        # when beta is 90 and cos(beta) is zero (which was simplified-divided
+        # for the calculation of alpha and gamma)
+        return pyrr.Vector3([x_rot, y_rot, z_rot])
+
+    #     print("reading local euler angles. not implemented yet!")
+    #     traceback.print_stack()
+    #     exit()
+    #     return
+
+    # debuggin property getters for local matrices
+    @property
+    def translation_mat(self):
+        # print("querying translation mat")
+        # traceback.print_stack()
+        # exit()
+        if self._translation_dirty:
+            self._update_translation_matrix()
+        return self._translation_mat
+
+    @property
+    def rotation_mat(self):
+        if (self._rotation_dirty):
+            self._update_rotation_matrix()
+        return self._rotation_mat
+
+
+    # public api setters
+    # for now global setters are acting like local
     @position.setter
     def position(self, value):
-        # print("dirtying position to {}".format(value))
-        # traceback.print_stack()
-        self._position = value
+        # by setting position (as world space pos), we should
+        # set local_position accordingly
+        # for now, let's set local_position directly
+
+        # what we actually need to do:
+        # new_local_pos = parent_global_view_mat * target_ws_value
+        # i.e the local position is based on how the parent transform
+        # see the given world space position
+        view_matrix = self.parent.view_mat if self.parent is not None else pyrr.matrix44.create_identity()
+        # be careful. we need to make sure data is treated as pyrr.Vector3 and not just numpy ndarray
+        local_pos = pyrr.Vector3(pyrr.matrix44.apply_to_vector(view_matrix, value))
+        # should we try to cache this world space value in case is asked?
+        # yes. we need somehow to return the local position when we are asked for it.
+        # and we are not going to recalculate it every time.
+        # should it have a dirty flag then?
+
+        # we are going to use the property to dirty the values appropiately
+        self.local_position = local_pos
+
+    @local_position.setter
+    def local_position(self, value):
+        self._local_position = value
         self._translation_dirty = True
-        self._model_dirty = True
-        self._view_dirty = True
+        self._local_model_dirty = True
+        self._local_view_dirty = True
 
     # we were calling 'rotation' the euler angles
     # should we allow this setter?
     # yes, the 'inspector' can work based on these values
     @rotation.setter
     def rotation(self, value):
-        self._rotation = value
-        self._rotation_dirty = True
-        self._model_dirty = True
-        self._view_dirty = True
+        # same as for position, we need to update local values
+        # self.local_rotation(value)
 
-    @scale.setter
-    def scale(self, value):
-        self._scale = value
+        # this parent rotation is a quaternion
+        parent_rotation = self.parent.rotation if self.parent is not None else [1, 0, 0, 0] # identity quaternion
+        # we need to get the inverse rotation of the parent
+        parent_rotation_inverse = [
+            -parent_rotation[0],
+            -parent_rotation[1],
+            -parent_rotation[2],
+            parent_rotation[3]
+        ]
+        local_rotation = Transform.quaternion_multiply(parent_rotation_inverse, value)
+        # we are going to use the property to dirty the values appropiately
+        self.local_rotation = local_rotation
+
+    #
+
+    @local_rotation.setter
+    def local_rotation(self, value):
+        self._local_rotation = value
+        self._rotation_dirty = True
+        self._local_model_dirty = True
+        self._local_view_dirty = True
+
+    # add back the property decorator once we manage to read euler from quaternion
+    @local_euler_angles.setter
+    def local_euler_angles(self, value):
+        # print("trying to set euler angles to {}".format(value))
+        self._local_rotation = Transform.quaternion_from_euler(value)
+        self._rotation_dirty = True
+        self._local_model_dirty = True
+        self._local_view_dirty = True
+
+    # local_euler_angles = property(None, local_euler_angles)
+
+    # removed from now.
+    # i don't think we are going to need trying to set a final scale
+    # @scale.setter
+    # def scale(self, value):
+    #     # same as for position, we need to update local values
+    #     self.local_scale(value)
+
+    @local_scale.setter
+    def local_scale(self, value):
+        self._local_scale = value
         self._scale_dirty = True
-        self._model_dirty = True
-        self._view_dirty = True
+        self._local_model_dirty = True
+        self._local_view_dirty = True
 
     # public api (getters)
-    @property
-    def translation_mat(self):
-        if (self._translation_dirty):
-            self._set_translation_matrix()
-        return self._translation_mat
+    # @property
+    # def translation_mat(self):
+    #     if (self._translation_dirty):
+    #         self._set_translation_matrix()
+    #     return self._translation_mat
 
-    @property
-    def rotation_mat(self):
-        if (self._rotation_dirty):
-            self._set_rotation_matrix()
-        return self._rotation_mat
+    # @property
+    # def rotation_mat(self):
+    #     if (self._rotation_dirty):
+    #         self._set_rotation_matrix()
+    #     return self._rotation_mat
 
-    @property
-    def scale_mat(self):
-        if (self._scale_dirty):
-            self._set_scale_matrix()
-        return self._scale_mat
+    # @property
+    # def scale_mat(self):
+    #     if (self._scale_dirty):
+    #         self._set_scale_matrix()
+    #     return self._scale_mat
 
+    # public api getters
     @property
+    # model matrix takes all hierarchy transformations into account.
+    # model matrix = parent_model * local_model
+    # how should we cache this matrix?
+    # in order to cache it, we need to have a method to check if
+    # parent's model matrix is up to date
+    # plus a similar method to know if our local matrix is also up to date
+    # to know if the parent model matrix is up to date, it's a recursive method
+    # we are trying to cache the resulting model matrix to not do matrix multiplications
+    # every time we 'get' this value.
     def model_mat(self):
-        if (self._model_dirty):
-            self._set_model_matrix()
-        return self._model_mat
+        # if (self._model_dirty): # <- this means that whenever we change the local transform, we need to dirty our children's model matrices
+        #     self._update_model_matrix()
+        # return
+        model_matrix = self.parent.model_mat if self.parent is not None else pyrr.matrix44.create_identity()
+        # we use the property to access the local model matrix in case is dirty
+        return pyrr.matrix44.multiply(self.local_model_mat, model_matrix)
 
+    # this is the final view matrix
+    # final view matrix = parent_view * local_view
     @property
     def view_mat(self):
-        # print("getting view matrix dirty={}".format(self._view_dirty))
-        if (self._view_dirty):
-            self._set_view_matrix()
-        return self._view_mat
+        view_matrix = self.parent.view_mat if self.parent is not None else pyrr.matrix44.create_identity()
+        # we use the property to access the local view matrix in case is dirty
+        return pyrr.matrix44.multiply(self.local_view_mat, view_matrix)
 
     @property
+    def local_model_mat(self):
+        if (self._local_model_dirty):
+            self._update_local_model_matrix()
+        return self._local_model_mat
+
+    @property
+    def local_view_mat(self):
+        if (self._local_view_dirty):
+            self._update_local_view_matrix()
+        return self._local_view_mat
+
+
+    @property
+    # world space of the right vector of this node
+    # i should debug this directions by drawing a gizmo for each selected gameObject
+    # direction vectors depends on the global model matrix
     def right(self):
-        if (self._model_dirty):
-            self._set_model_matrix()
+        # if (self._right_dirty):
+            # we should obtain the right vector from rotation matrix
+            # we can do it a bit more directly checking directly if the rotation matrix is dirty.
+            # actually no. the right vector is not just some vector in the local rotation matrix.
+            # we also need to take into account the parent transforms
+            # self._set_model_matrix()
         # right is the first col of the model matrix
         # and it's stored in numpy matrix as the first row (mat[0])
-        return self.model_mat[0,:3]
+        # return self.model_mat[0,:3]
+        # note. this was wrong. we were not even considering scale into account
+        # now we do it taking the whole hierarchy into account and then normalize the vector
+        # if (self._model_dirty):
+        #     self._set_model_matrix()
+        #     # we need to avoid doing this calculation every time
+        #     # actually no. this calculation is only done when the model matrix is dirty
+        #     # if we use the property to get the model matrix, we woulnd't need to check
+        #     # here if the matrix is dirty.
+        #     # but at the same time, we dont know if the matrix was dirty, we can
+        #     # not tell if we need to recalculate the direction vector.
+        #     # another apporach is to use the property getter for the model matrix
+        #     # but having its own right_dirty flag
+        #     # that means, whenever we set the model matrix, we need to set the direction
+        #     # flag as dirty.
+        #     # we might end up with a circular dependency if we follow that approach:
+        #     # - direction is dirty,
+        #     # we recalculate it by multiplying model * vector3.right
+        #     # during that multiplication, we use the model matrix property getter
+        #     # which if the matrix was dirty, will set the model matrix again,
+        #     # marking as dirty the direction once again.
+        #     # because of that, i think it's safer to not use the property for the matrix
+        #     # and use it the internal
+        #     self._right = pyrr.vector.normalize(
+        #         pyrr.matrix44.apply_to_vector(self._model_mat, pyrr.Vector3([1, 0, 0]))
+        #     )
+        # return self._right
+        # right up and forward are direction! they dont have to be translated nor scaled
+        # but the final vector needs to be in world space
+        np_vector = pyrr.matrix44.apply_to_vector(self.model_mat, pyrr.Vector4([1, 0, 0, 0]))
+        # print("np_vector = {}".format(np_vector))
+        result = pyrr.Vector3([np_vector[0], np_vector[1], np_vector[2]])
+        # print("result = {}".format(result))
+        # result = result.normalize()
+        return pyrr.vector.normalize(result)
 
     @property
     def up(self):
-        if (self._model_dirty):
-            self._set_model_matrix()
-        # up is the second col of the model matrix
-        # and it's stored in numpy matrix as the second row (mat[1])
-        return self.model_mat[1,:3]
+        # if (self._model_dirty):
+        #     self._set_model_matrix()
+        #     self._up = pyrr.vector.normalize(
+        #         pyrr.matrix44.apply_to_vector(self._model_mat, pyrr.Vector3([0, 1, 0]))
+        #     )
+        # # up is the second col of the model matrix
+        # # and it's stored in numpy matrix as the second row (mat[1])
+        # # return self.model_mat[1,:3]
+        # return self._up
+        np_vector = pyrr.matrix44.apply_to_vector(self.model_mat, pyrr.Vector4([0, 1, 0, 0]))
+        result = pyrr.Vector3([np_vector[0], np_vector[1], np_vector[2]])
+        return pyrr.vector.normalize(result)
 
     @property
     def forward(self):
-        if (self._model_dirty):
-            self._set_model_matrix()
-        # up is the third col of the model matrix
-        # and it's stored in numpy matrix as the third row (mat[2])
-        return self.model_mat[2,:3]
+        # if (self._model_dirty):
+        #     self._set_model_matrix()
+        #     self._forward = pyrr.vector.normalize(
+        #         pyrr.matrix44.apply_to_vector(self._model_mat, pyrr.Vector3([0, 0, 1]))
+        #     )
+        # # up is the third col of the model matrix
+        # # and it's stored in numpy matrix as the third row (mat[2])
+        # # return self.model_mat[2,:3]
+        # return self._forward
+        np_vector = pyrr.matrix44.apply_to_vector(self.model_mat, pyrr.Vector4([0, 0, 1, 0]))
+        result = pyrr.Vector3([np_vector[0], np_vector[1], np_vector[2]])
+        return pyrr.vector.normalize(result)
+
+    def rotate(self, euler_angles):
+        """ rotate current transform by euler angles """
+        rotation = Transform.quaternion_from_euler(euler_angles)
+        # given rotation is applied on top of the current rotation
+        self.local_rotation = Transform.quaternion_multiply(self._local_rotation, rotation)
 
     # utility to set the rotation matrix)
     def look_at(self, eye_pos, target, up):
+        print("implement look at")
+        traceback.print_stack()
+        exit()
         # local positive z
         forward = (eye_pos - target)
         # forward = forward / np.sqrt(np.sum(forward**2))
-        forward = pyrr.vector.normalise(forward)
+        forward = pyrr.vector.normalize(forward)
         right = pyrr.vector3.cross(up, forward)
         up = pyrr.vector3.cross(forward, right)
         # this define us a rotation matrix
@@ -337,154 +450,123 @@ class Transform:
 
 
 
-    # private methods
-    def _set_translation_matrix(self):
-        self._translation_mat = pyrr.matrix44.create_from_translation(self._position)
+    # private internal methods
+
+    # these _set_<>_matrix methods needs to be called when the internal data has changed
+    def _update_translation_matrix(self):
+        self._translation_mat = pyrr.matrix44.create_from_translation(self._local_position)
+        # print("translation matrix: {}".format(self._translation_mat))
         self._translation_dirty = False
 
-    def _set_rotation_matrix(self):
-        # for now this is called when we modified the euler angles
-
-        # print("updating rotation matrix of {} dirty={}".format(self.game_object.name, self._rotation_dirty))
+    def _update_rotation_matrix(self):
+        ############################################################################
+        # OLD EULER CODE
+        ############################################################################
+        # print("implement _set_rotation_matrix")
         # traceback.print_stack()
-        # rot_x = pyrr.Matrix44.from_x_rotation(self._rotation[0])
-        # rot_y = pyrr.Matrix44.from_y_rotation(self._rotation[1])
-        # rot_z = pyrr.Matrix44.from_z_rotation(self._rotation[2])
+        # exit()
 
-        # self._rotation_mat = pyrr.matrix44.create_from_translation(self._position)
-        # pyrr from_eurler expects roll, pitch, yaw (that order)
-        # and in radians
-        # for us:
-        # roll=z
-        # pitch=x
-        # yaw=y
-        roll = math.radians(self._rotation.z)
-        pitch = math.radians(self._rotation.x)
-        yaw = math.radians(self._rotation.y)
-        # using create from euler is not swaping
-        # roll with pitch apart of being in the opposite direction (clockwise)
-        # we want anticlockwise for positive angles (right hand rule)
-        # euler = pyrr.euler.create(roll, pitch, yaw)
-        # print("pitch={} yaw={} roll={}".format(
-        #     pyrr.euler.pitch(euler),
-        #     pyrr.euler.yaw(euler),
-        #     pyrr.euler.roll(euler)
-        # ))
-        # print("rot mat")
-        # print(self._rotation_mat)
-        # let's debug the results
+        # # roll = math.radians(self._rotation.z)
+        # # pitch = math.radians(self._rotation.x)
+        # # yaw = math.radians(self._rotation.y)
 
-        # these have the right angle but are doing in the opposite direction
-        # and we want them to follow the right hand rule
-        # we need to invert them (transpose them)
-        individual_x = pyrr.matrix44.create_from_x_rotation(pitch)
-        individual_y = pyrr.matrix44.create_from_y_rotation(yaw)
-        individual_z = pyrr.matrix44.create_from_z_rotation(roll)
+        # # these have the right angle but are doing in the opposite direction
+        # # and we want them to follow the right hand rule
+        # # we need to invert them (transpose them)
+        # individual_x = pyrr.matrix44.create_from_x_rotation(pitch)
+        # individual_y = pyrr.matrix44.create_from_y_rotation(yaw)
+        # individual_z = pyrr.matrix44.create_from_z_rotation(roll)
 
-        # transposing form pyrr be col-major using numpy .T
-        individual_x = individual_x.T
-        individual_y = individual_y.T
-        individual_z = individual_z.T
+        # # transposing pyrr to be col-major using numpy .T
+        # individual_x = individual_x.T
+        # individual_y = individual_y.T
+        # individual_z = individual_z.T
 
-        # print("rot mat x")
-        # print(individual_x)
-        # print("rot mat y")
-        # print(individual_y)
-        # print("rot mat z")
-        # print(individual_z)
+        # # btw. unity follow YXZ (following that order, it looks local)
+        # # https://docs.unity3d.com/Packages/com.unity.mathematics@0.0/api/Unity.Mathematics.math.RotationOrder.html
+        # # that means, regarding multiplication
+        # # unity does:
+        # # Ry * Rx * Rz * v
+        # self._rotation_mat = pyrr.matrix44.multiply(
+        #         pyrr.matrix44.multiply(individual_z, individual_y),
+        #         individual_x)
 
-        # this didn't work
-        # self._rotation_mat = pyrr.matrix44.create_from_eulers(euler)
-
-        # using multiplication of individual matrices now
-        # let's follow the convention
-        # RxRyRz i.e we rotate first along z, then y then x
-        # that mean, if we rotate in the inspector
-        # first modifying x, then y and then z, the rotations
-        # look right using the local space (x,y,z) space each time
-        # we change an angle.
-        # btw. unity follow YXZ (following that order, it looks local)
-        # https://docs.unity3d.com/Packages/com.unity.mathematics@0.0/api/Unity.Mathematics.math.RotationOrder.html
-        # that means, regarding multiplication
-        # unity does:
-        # Ry * Rx * Rz * v
-        self._rotation_mat = pyrr.matrix44.multiply(
-                pyrr.matrix44.multiply(individual_z, individual_y),
-                individual_x)
-        # print("rot mat x")
-        # print(self._rotation_mat)
-        # # trying to print every individual element to see if we are accessing them correctly
-        # for row in range(4):
-        #     for col in range(4):
-        #         print("[{},{}]={}".format(row, col, self._rotation_mat[row][col]))
-        #     print()
-        # print()
-        # since we interpret the matrix as stored by cols,
-        # to get the matematical position of A(i,j) we do Mat[col, row]
-        # print("checking if extraction euler angles from rot matrix is doable")
-        # print("original pitch={}, yaw={}, roll={}".format(pitch, yaw, roll))
-        # phi (roll) = arctan2(A31, A32)
-        # theta (pitch) = arccos(A33)
-        # psi (yaw) = -arctan2(A13,A23)
-        # roll = 0#np.arctan2(self._rotation_mat[0][2], self._rotation_mat[1][2])
-        # pitch = np.arccos(self._rotation_mat[2][2])
-        # yaw = -np.arctan2(self._rotation_mat[2][0], self._rotation_mat[2][1])
-        yaw = np.arcsin(self._rotation_mat[2][0])   # sin(b) = A13
-        cos_beta = np.cos(yaw)
-        pitch = np.arccos(self._rotation_mat[2][2]/cos_beta)
-        roll = np.arccos(self._rotation_mat[0][0]/cos_beta)
-
-        # print("original pitch={}, yaw={}, roll={}".format(pitch, yaw, roll))
-
-
-        # i should update the right, up and forward accordingly
-        # with pyrr: pyrr.matrix44.apply_to_vector(A, v)
-        self.right = pyrr.matrix44.apply_to_vector(self._rotation_mat, pyrr.Vector3([1, 0, 0]))
-        self.up = pyrr.matrix44.apply_to_vector(self._rotation_mat, pyrr.Vector3([0, 1, 0]))
-        self.forward = pyrr.matrix44.apply_to_vector(self._rotation_mat, pyrr.Vector3([0, 0, 1]))
-
+        # # i should update the right, up and forward accordingly
+        # # with pyrr: pyrr.matrix44.apply_to_vector(A, v)
+        # self.right = pyrr.matrix44.apply_to_vector(self._rotation_mat, pyrr.Vector3([1, 0, 0]))
+        # self.up = pyrr.matrix44.apply_to_vector(self._rotation_mat, pyrr.Vector3([0, 1, 0]))
+        # self.forward = pyrr.matrix44.apply_to_vector(self._rotation_mat, pyrr.Vector3([0, 0, 1]))
+        ############################################################################
+        # END OLD EULER CODE
+        ############################################################################
+        self._rotation_mat = Transform.matrix_from_quaternion(self._local_rotation)
         self._rotation_dirty = False
 
-    def _set_scale_matrix(self):
-        self._scale_mat = pyrr.matrix44.create_from_scale(self._scale)
+    def _update_scale_matrix(self):
+        self._scale_mat = pyrr.matrix44.create_from_scale(self._local_scale)
         self._scale_dirty = False
 
-    def _set_model_matrix(self):
+    # def _update_model_matrix(self):
+
+    # def dirty_parent_model_matrix(self):
+    #     self.
+
+
+    # this is for the global model matrix
+    # for now it's going to redirect to the local one
+    # this needs to get called when reading a model matrix with a model_dirty flag set
+    # def _set_model_matrix(self):
+    #     pass
+
+    # this is the 'local' model matrix
+    # i think i'm mixing 'local' and global model matrices.
+    # for instance, direction vectors property getters should check for the "global" model matrix.
+    # when do we use a 'local' model matrix?
+    # a) we use the local model matrix when chaining model matrices in a hierarchy
+    def _update_local_model_matrix(self):
         if (self._translation_dirty):
-            self._set_translation_matrix()
+            self._update_translation_matrix()
         if (self._rotation_dirty):
-            self._set_rotation_matrix()
+            self._update_rotation_matrix()
         if (self._scale_dirty):
-            self._set_scale_matrix()
-        self._model_mat = pyrr.matrix44.multiply(
+            self._update_scale_matrix()
+        self._local_model_mat = pyrr.matrix44.multiply(
                 pyrr.matrix44.multiply(self._scale_mat, self._rotation_mat),
                 self._translation_mat)
-        self._model_dirty = False
+        self._local_model_dirty = False
 
-    def _set_view_matrix(self):
-        # print("setting view matrix t={} r={} s={} m={}".format(self._translation_dirty, self._rotation_dirty, self._scale_dirty, self._model_dirty))
-        # traceback.print_stack()
-        if (self._translation_dirty):
-            self._set_translation_matrix()
-        if (self._rotation_dirty):
-            self._set_rotation_matrix()
-        if (self._scale_dirty):
-            self._set_scale_matrix()
-        if (self._model_dirty):
-            self._set_model_matrix()
-        # we can either invert the model matrix
-        # or we can make the inverse 'manually'
-        # knowing that the view matrix is
-        # view = inverse_rotation * inverse translation
-        # inverse_rotation is the transpose of the rotation mat
-        # and inverse_translation is using -position
-        inverse_rotation = self._rotation_mat.T
-        inverse_translation = pyrr.matrix44.create_from_translation(-self._position)
-        self._view_mat = pyrr.matrix44.multiply(inverse_translation, inverse_rotation)
-        self._view_dirty = False
+    def _update_local_view_matrix(self):
+        # do we need to check for the matrices dirty flag?
+        # it doesn't seem we are using the matrices at all but the internal raw values
+        # if (self._translation_dirty):
+        #     self._update_translation_matrix()
+        # if (self._rotation_dirty):
+        #     self._update_rotation_matrix()
+        # if (self._scale_dirty):
+        #     self._update_scale_matrix()
+        inverse_translation = pyrr.matrix44.create_from_translation(-self._local_position)
+        inverse_quaternion = [
+            -self._local_rotation[0],
+            -self._local_rotation[1],
+            -self._local_rotation[2],
+            self._local_rotation[3]
+        ]
+        inverse_rotation = Transform.matrix_from_quaternion(inverse_quaternion)
+
+        inverse_scale = pyrr.matrix44.create_from_scale(np.reciprocal(self._local_scale))
+        # local view = inverse_scale * inverse_rotation * inverse_translation
+        self._local_view_mat = pyrr.matrix44.multiply(
+            pyrr.matrix44.multiply(inverse_translation, inverse_rotation),
+            inverse_scale
+        )
+        self._local_view_mat_dirty = False
 
     # we might want a method to get the inverse but done
     # by knowing m = t * r * s
+
+    ############################################################################
+    # STATIC METHODS
+    ############################################################################
 
     # static method don't take class type as first parameter
     # they don't modify the class at all compared to class methods
@@ -540,6 +622,7 @@ class Transform:
     # pitch -> Rx
     # rolls -> Rz
     # let's see if we get the right conversation back if we generate the quaternion following: Ry*Rx*Rz * v
+    # METHOD NOT COMPLETELY FNISHED AND NOT WORKING
     @staticmethod
     def euler_from_quaternion(quaternion):
         q0 = quaternion[0]
@@ -609,6 +692,3 @@ class Transform:
         m[2] = [(2*x*z - 2*w*y), (2*y*z + 2*w*x), (1 - 2*x*x - 2*y*y), 0]
         m[3] = [0, 0, 0, 1]
         return m.T
-
-
-

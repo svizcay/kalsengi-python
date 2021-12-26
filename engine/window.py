@@ -2,6 +2,8 @@ import glfw
 
 import OpenGL.GL as gl
 
+import pyassimp as assimp
+
 import pyrr
 
 import imgui
@@ -37,7 +39,7 @@ import cv2
 
 from math import sin
 
-from .base_mesh import BaseMesh, Triangle, Quad, Cube
+from .base_mesh import BaseMesh, Triangle, Quad, Cube, Line, Gizmo
 from .shader import Shader
 from .material import Material
 from .mesh_renderer import MeshRenderer
@@ -49,6 +51,7 @@ from .free_fly_camera import FreeFlyCamera
 from .transform import Transform
 from .game_object import GameObject
 from .fps_counter import FPSCounter
+from .scene import Scene
 from .gui import TransformGUI
 from .gui import CameraGUI
 from .gui import MaterialGUI
@@ -69,6 +72,13 @@ def framebuffer_size_callback(context, width, height):
 def cursor_position_callback(context, xpos, ypos):
     print("cursor event: {}x{}".format(xpos, ypos))
 
+
+# assimp hierarchy
+def recur_node(node,level = 0):
+    print("  " + "\t" * level + "- " + str(node))
+    for child in node.children:
+        recur_node(child, level + 1)
+
 class Window:
     # new in python 3.5:
     # even though python doesn't enforce specifying the data type for parameters
@@ -81,6 +91,7 @@ class Window:
             raise Exception("glfw could not be initialized")
 
         full_screen = False
+        # whether we render the main scene directly to the main framebuffer or if we render to some off-screen framebuffer
         self.render_scene_to_window = True
         self.render_webcam = False
 
@@ -129,6 +140,8 @@ class Window:
         gl.glClearColor(*self.clear_color, 1)# red
         # gl.glClearColor(0.2, 0.258, 0.258, 1)# gray
 
+        gl.glLineWidth(5)
+
         # enabling depth, stencil, etc buffers it's not part of a global 'initial setup'.
         # this should be done for each "material" like in the same way is done in unity shaders
         # this needs to be explicit like that because we can not depend on what was rendered before had exactly the same 'opengl configuration'
@@ -150,12 +163,58 @@ class Window:
 
         # SCENE BEGIN
         # scene = collection of gameObjects
-        scene = []
+        self.scene = Scene()
 
-        # floor
-        #self.plane_go = GameObject("floor")
-        # self.plane_go.name = "floor"
-        #self.plane_go.add_component(Quad())
+        # self.scene.add_game_object("obj1")
+        # self.scene.add_game_object("obj2")
+
+        # monkey
+        self.monkey_go = GameObject("monkey")
+        self.scene.add_game_object(self.monkey_go)
+        self.monkey_object = {}
+
+        # the asset needs to be free at the end
+        print("about to load something with assimp")
+        self.monkey_asset = assimp.load("models/suzanne/suzanne.fbx", processing=assimp.postprocess.aiProcess_Triangulate)
+
+        print("SCENE:")
+        print("  meshes:" + str(len(self.monkey_asset.meshes)))
+        print("  materials:" + str(len(self.monkey_asset.materials)))
+        print("  textures:" + str(len(self.monkey_asset.textures)))
+        print("NODES:")
+        recur_node(self.monkey_asset.rootnode)
+
+        print("MESHES:")
+        meshes = []
+        for index, mesh in enumerate(self.monkey_asset.meshes):
+            meshes.append(mesh)
+            print("  MESH" + str(index+1))
+            print("    material id:" + str(mesh.materialindex+1))
+            print("    vertices:" + str(len(mesh.vertices)))
+            print("    first 3 verts:\n" + str(mesh.vertices[:3]))
+            if mesh.normals.any():
+                    print("    first 3 normals:\n" + str(mesh.normals[:3]))
+            else:
+                    print("    no normals")
+            print("    colors:" + str(len(mesh.colors)))
+            tcs = mesh.texturecoords
+            if tcs.any():
+                for tc_index, tc in enumerate(tcs):
+                    print("    texture-coords "+ str(tc_index) + ":" + str(len(tcs[tc_index])) + "first3:" + str(tcs[tc_index][:3]))
+
+            else:
+                print("    no texture coordinates")
+            print("    uv-component-count:" + str(len(mesh.numuvcomponents)))
+            print("    faces:" + str(len(mesh.faces)) + " -> first:\n" + str(mesh.faces[:3]))
+            print("    bones:" + str(len(mesh.bones)) + " -> first:" + str([str(b) for b in mesh.bones[:3]]))
+            print
+
+        # print(meshes[0].vertices[:3])
+        # print(self.monkey_asset.meshes[0])
+        # print("nr meshes in monkey asset: ".format(len(self.monkey_asset.meshes)))
+        # monkey_mesh = self.monkey_asset.meshes[0]
+
+        self.monkey_object["mesh"] = BaseMesh(meshes[0].vertices, uvs = meshes[0].texturecoords[0], indices=meshes[0].faces)
 
         self.plane_go = GameObject("floor")
         self.plane_object = {}
@@ -164,6 +223,9 @@ class Window:
         # cube
         self.cube_object = {}
         self.cube_object["mesh"] = Cube()
+
+        # line
+        gizmo = Gizmo()
 
         # triangle = Triangle()
         # triangle = Triangle(VertexAttrib.POS)
@@ -199,8 +261,10 @@ class Window:
             # "engine/shaders/fragment/mix_textures.glsl"
             "engine/shaders/fragment/texture_uniform_color.glsl"
         )
+
         self.material = Material(shader)
         self.material_gui = MaterialGUI(self.material)
+
         self.cube_object["shader"] = shader
         # self.cube_object["shader"] = Shader("engine/shaders/vertex/simple_mvp.glsl", "engine/shaders/fragment/flat_time_color.glsl")
 
@@ -214,14 +278,40 @@ class Window:
             self.cube_object["shader"]
         )
 
+        self.monkey_object["renderer"] = MeshRenderer(
+            self.monkey_object["mesh"],
+            shader
+        )
+        self.monkey_object["shader"] = shader
+        self.monkey_go.transform.local_position = pyrr.Vector3([0, 3, 0])
+        self.monkey_go.transform.local_euler_angles = pyrr.Vector3([270, 0, 0])
+
+        gizmo_shader = Shader.from_file(
+            "engine/shaders/vertex/simple_mvp_color.glsl",
+            "engine/shaders/fragment/vertex_color.glsl"
+        )
+        self.gizmo_renderer = MeshRenderer(
+            gizmo,
+            gizmo_shader
+        )
+
         # self.plane_object["transform"] = Transform()
-        self.plane_go.transform.position = pyrr.Vector3([0, 0, -1])
-        self.plane_go.transform.rotation = pyrr.Vector3([270, 0, 0])
-        self.plane_go.transform.scale = pyrr.Vector3([10,10,10])
+        # self.plane_go.transform.position = pyrr.Vector3([0, 0, -1])
+        # self.plane_go.transform.local_position = pyrr.Vector3([0, 0, 0])
+        # rotation now it's a quaternion.
+        # we need to provide a set property to set local euler angles
+        # self.plane_go.transform.rotation = pyrr.Vector3([270, 0, 0])
+        self.plane_go.transform.local_euler_angles = pyrr.Vector3([270, 0, 0])
+        # print("plane model matrix {}".format(self.plane_go.transform.model_mat))
+        # self.plane_go.transform.local_scale = pyrr.Vector3([10,10,10])
+        self.plane_go.transform.local_scale = pyrr.Vector3([10,10,10])
+        # self.plane_go.transform.local_scale = pyrr.Vector3([2,2,2])
 
         # lets not create the transform directly but via gameObject
         self.cube_go = GameObject("cube")
-        self.cube_go.transform.position = pyrr.Vector3([0, 0.5, 0])
+        self.scene.add_game_object(self.cube_go)
+        self.cube_go.transform.local_position = pyrr.Vector3([0, 0.5, 0])
+        # print("cube model matrix {}".format(self.cube_go.transform.model_mat))
         # self.cube_object["transform"] = Transform()
         # self.cube_object["transform"].position = pyrr.Vector3([0, 0.5, 0])
 
@@ -249,12 +339,14 @@ class Window:
         print("creating scene camera gameObject")
         self.camera_go = GameObject("scene camera")
         self.camera = self.camera_go.add_component(Camera, self.editor_scene_size[0]/self.editor_scene_size[1])
-        self.camera_go.transform.position = pyrr.Vector3([0, 1.7, 5])
+        self.camera_go.transform.local_position = pyrr.Vector3([0, 1.7, 5])
+        print("scene camera view matrix {}".format(self.camera_go.transform.view_mat))
         print("field of view: {}".format(self.camera.vfov))
         print("**********")
         self.camera_gui = CameraGUI(self.camera)
         self.camera_transform_gui = TransformGUI(self.camera_go.transform)
-        self.free_fly_camera = FreeFlyCamera(self.camera_go.transform)
+        # self.free_fly_camera = FreeFlyCamera(self.camera_go.transform)
+        self.free_fly_camera = FreeFlyCamera(self.cube_go.transform)
 
         # game camera
         self.game_camera_go = GameObject("game camera")
@@ -370,6 +462,23 @@ class Window:
         # self.texture1.bind()
         # self.cube_object["renderer"].set_uniform("texture0", 0)
 
+        # draw monkey
+        self.monkey_object["shader"].use()
+        monkey_object_mvp = pyrr.matrix44.multiply(
+            pyrr.matrix44.multiply(self.monkey_go.transform.model_mat, self.camera.transform.view_mat),
+            self.camera.projection)
+        self.monkey_object["renderer"].set_uniform("mvp", monkey_object_mvp)
+        self.monkey_object["renderer"].render()
+
+        # draw line
+        self.gizmo_renderer.shader.use()
+        gizmo_object_mvp = pyrr.matrix44.multiply(
+            pyrr.matrix44.multiply(self.cube_go.transform.model_mat, self.camera.transform.view_mat),
+            self.camera.projection)
+        self.gizmo_renderer.set_uniform("mvp", gizmo_object_mvp)
+        gl.glClear(gl.GL_DEPTH_BUFFER_BIT)
+        self.gizmo_renderer.render()
+
         # restore framebuffer and viewport
         gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, 0)
         # print("restoring framebuffer {}x{}".format(self.framebuffer_width, self.framebuffer_height))
@@ -440,7 +549,7 @@ class Window:
         imgui.separator()
         # imgui.text("test text")
         imgui.text("scene window focused = {}".format(self.scene_imgui_window_focused))
-        self.cube_object["transform-gui"].draw()
+        # self.cube_object["transform-gui"].draw()
         imgui.separator()
         imgui.text("scene camera")
         # self.camera_transform_gui.draw()
@@ -537,6 +646,8 @@ class Window:
                 (0,1), (1,0)    # we invert the v in uv coords
             )
         imgui.end()
+
+        self.scene.draw_gui()
 
     def render_gui(self):
         imgui.render()
@@ -639,6 +750,9 @@ class Window:
         # opencv
         if self.render_webcam:
             self.vid.release()
+
+        # assimp models
+        assimp.release(self.monkey_asset)
 
         if self.use_imgui:
             self.impl.shutdown()

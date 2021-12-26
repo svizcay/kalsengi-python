@@ -34,12 +34,15 @@ class BaseMesh(Component):
             uvs = None,
             normals = None,
             colors = None,
-            indices = None):
+            indices = None,
+            drawing_mode = gl.GL_TRIANGLES):
         # print("vertices: {}".format(vertices))
         self.vertices = vertices
         self.uvs = uvs
         self.normals = normals
         self.colors = colors
+
+        self.drawing_mode = drawing_mode
 
         # remember to use python's // integer division
         self._nr_vertices = len(vertices) // 3
@@ -50,9 +53,12 @@ class BaseMesh(Component):
         # this is python's array concatenation
         # vertex_data = vertices + colors + uvs + normals
         vertex_data = vertices.copy()
-        vertex_data += uvs if uvs is not None else []
-        vertex_data += normals if normals is not None else []
-        vertex_data += colors if colors is not None else []
+        if (uvs is not None):
+            vertex_data += uvs if uvs is not None else []
+        if (normals is not None):
+            vertex_data += normals if normals is not None else []
+        if (colors is not None):
+            vertex_data += colors if colors is not None else []
 
         # print("whole data (before numpy): {}".format(vertex_data))
         # cast to numpy array
@@ -166,7 +172,8 @@ class BaseMesh(Component):
         if (self.indexed_drawing):
             # print("using indexed drawing nr indices = {}".format(self.nr_indices))
             gl.glDrawElements(
-                gl.GL_TRIANGLES,    # mode
+                # gl.GL_TRIANGLES,    # mode
+                self.drawing_mode,    # mode
                 self.nr_indices,    # nr of indices
                 gl.GL_UNSIGNED_INT, # type
                 None                # offset
@@ -175,7 +182,8 @@ class BaseMesh(Component):
             )
         else:
             gl.glDrawArrays(
-                gl.GL_TRIANGLES,   # mode
+                # gl.GL_TRIANGLES,   # mode
+                self.drawing_mode,    # mode
                 0,              # starting index
                 self.nr_vertices # nr vertices or triangles? i think it's nr vertices
             )
@@ -238,6 +246,79 @@ class Triangle(BaseMesh):
         # super().__init__() same as BaseModel.__init__()
         # when calling methods within the class, we don't need to pass self.
         super().__init__(vertices, uvs=uvs, normals=normals, colors=colors, indices=indices)
+
+class Line(BaseMesh):
+
+    def __init__(self, attribs = VertexAttrib.ALL,*,
+            vertices = None,
+            uvs = None,
+            normals = None,
+            colors = None,
+            ):
+        """ we expect vertex data to come in the form of arrays """
+
+        default_vertices = [
+            -0.5, 0, 0,  # left
+            0.5, 0, 0,   # right
+        ]
+
+        default_uvs = [
+            0.0, 0.0,   # bottom left
+            1.0, 0.0,   # bottom right
+        ]
+
+        default_normals = [
+            0, 0, 1,
+            0, 0, 1,
+        ]
+
+        default_colors = [
+            1, 0, 0,
+            0, 1, 0,
+        ]
+
+        # indices = [
+        #     0,1,2,
+        #     1,3,2,
+        # ]
+
+        # vertices can not be None. if they are not provided nor specified in the flag
+        # we need to use the default
+        vertices = default_vertices if (vertices is None) else vertices
+
+        uvs = default_uvs if (uvs is None and attribs & VertexAttrib.UV) else uvs
+        normals = default_normals if (normals is None and attribs & VertexAttrib.NORMAL) else normals
+        colors = default_colors if (colors is None and attribs & VertexAttrib.COLOR) else colors
+
+        # super().__init__() same as BaseModel.__init__()
+        # when calling methods within the class, we don't need to pass self.
+        super().__init__(vertices, uvs=uvs, normals=normals, colors=colors, drawing_mode=gl.GL_LINES)
+
+class Gizmo(BaseMesh):
+
+    def __init__(self):
+
+        default_vertices = [
+            0, 0, 0,    # x center
+            1, 0, 0,    # x right
+            0, 0, 0,    # y center
+            0, 1, 0,    # y up
+            0, 0, 0,    # z center
+            0, 0, 1,    # z forward
+        ]
+
+        default_colors = [
+            1, 0, 0,
+            1, 0, 0,
+            0, 1, 0,
+            0, 1, 0,
+            0, 0, 1,
+            0, 0, 1,
+        ]
+
+        # super().__init__() same as BaseModel.__init__()
+        # when calling methods within the class, we don't need to pass self.
+        super().__init__(default_vertices, colors=default_colors, drawing_mode=gl.GL_LINES)
 
 class Quad(BaseMesh):
 
