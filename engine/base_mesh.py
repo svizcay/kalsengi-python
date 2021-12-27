@@ -9,17 +9,17 @@
 # opengl library doesn't work with python's arrays.
 # using numpy instead
 import numpy as np
+import pyassimp as assimp
 
 # for creating VBO and VAO
 import OpenGL.GL as gl
 
 # import ctypes
 
-from .component import Component
 from . import vertex_attrib_loc
 from . import VertexAttrib
 
-class BaseMesh(Component):
+class BaseMesh():
 
     # explanaition of:
     # - positional argument
@@ -35,8 +35,10 @@ class BaseMesh(Component):
             normals = None,
             colors = None,
             indices = None,
-            drawing_mode = gl.GL_TRIANGLES):
-        # print("vertices: {}".format(vertices))
+            drawing_mode = gl.GL_TRIANGLES,
+            verbose = False):
+
+
         self.vertices = vertices
         self.uvs = uvs
         self.normals = normals
@@ -46,7 +48,16 @@ class BaseMesh(Component):
 
         # remember to use python's // integer division
         self._nr_vertices = len(vertices) // 3
-        # print("nr vertices: {}".format(self._nr_vertices))
+
+        if (self._nr_vertices < 30 and verbose):
+            print("BaseMesh constructor")
+            print("********************")
+            print("vertices: {}".format(vertices))
+            print("uvs: {}".format(uvs))
+            print("normals: {}".format(normals))
+            print("colors: {}".format(colors))
+            print("indices: {}".format(indices))
+            print("nr vertices: {}".format(self._nr_vertices))
 
         # does this work when some of them are None?
         # a) it doesn't. We need to include it only if it's not None
@@ -60,10 +71,13 @@ class BaseMesh(Component):
         if (colors is not None):
             vertex_data += colors if colors is not None else []
 
-        # print("whole data (before numpy): {}".format(vertex_data))
+        if verbose:
+            print("whole data (before numpy cast): {}".format(vertex_data))
         # cast to numpy array
         # let's cast only the whole vertex_data buffer and not the individual attribs
         vertex_data = np.array(vertex_data, dtype=np.float32)
+        if verbose:
+            print("whole data (after numpy cast): {}".format(vertex_data))
 
         self.attribs = {
             "pos" : vertices,
@@ -193,6 +207,103 @@ class BaseMesh(Component):
             # print("binding ebo")
             gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self.ebo)
 
+    @classmethod
+    def from_file(cls, filename, verbose=False):
+        asset = assimp.load(
+            filename,
+            processing=assimp.postprocess.aiProcessPreset_TargetRealtime_MaxQuality
+            # processing=assimp.postprocess.aiProcess_Triangulate | assimp.postprocess.aiProcess_OptimizeMeshes
+        )
+
+        # in assimp data structure
+        # a model is mode out of multiple meshes
+        # for example, a simple obj model
+        # can consist of an entire 'scene' (light, camera, multiple meshes)
+        # and all of this be packed in a simple 'model'
+        if verbose:
+            print("model {}".format(filename))
+            print("nr meshes: {}".format(len(asset.meshes)))
+            print("nr materials: {}".format(len(asset.materials)))
+            print("nr textures: {}".format(len(asset.textures)))
+            print("hierarchy:")
+            BaseMesh.traverse_hierarchy(asset.rootnode)
+
+        vertices = None
+        normals = None
+        uvs = None
+        colors = None
+        indices = None
+
+        for index, mesh in enumerate(asset.meshes):
+            if verbose:
+                print("mesh id={}".format(index))
+                print("material id={}".format(mesh.materialindex))
+                print("nr vertices={}".format(len(mesh.vertices)))
+                print("vertices={}".format(mesh.vertices))
+            vertices = mesh.vertices
+            if mesh.normals.any():
+                # print("    first 3 normals:\n" + str(mesh.normals[:3]))
+                if verbose:
+                    print("normals={}".format(mesh.normals))
+                normals = mesh.normals
+            else:
+                if verbose:
+                    print("no normal data")
+            if verbose:
+                print("colors={}".format(mesh.colors))
+            if len(mesh.colors) > 0:
+                colors = mesh.colors
+
+            tcs = mesh.texturecoords
+            if tcs.any():
+                uvs = mesh.texturecoords[0]
+                for tc_index, tc in enumerate(tcs):
+                    if verbose:
+                        print("texture-coords "+ str(tc_index) + ":" + str(len(tcs[tc_index])) + "first3:" + str(tcs[tc_index][:3]))
+            else:
+                if verbose:
+                    print("no uv data")
+                # print("    no texture coordinates")
+
+            if verbose:
+                print("uv-component-count:" + str(len(mesh.numuvcomponents)))
+            for uvcomponent in mesh.numuvcomponents:
+                if verbose:
+                    print(uvcomponent)
+            if verbose:
+                print("faces:" + str(len(mesh.faces)) + " -> first:\n" + str(mesh.faces[:3]))
+                print("bones:" + str(len(mesh.bones)) + " -> first:" + str([str(b) for b in mesh.bones[:3]]))
+                print("***********************")
+                print("")
+            indices = mesh.faces
+
+        # note: assimp returns mesh data as array of vertex data.
+        # i.e to return the 3 vertices of a triangles,
+        # rather than returning:
+        # [x1, y1, z1, x2, y2, z2, x3, y3, z3]
+        # it's going to return
+        # [[x1, y1, z1], [x2, y2, z2], [x3, y3, z3]]
+        vertices = [coord for vertex in vertices for coord in vertex]
+        if uvs is not None:
+            uvs = [coord for uv in uvs for coord in uv]
+        if normals is not None:
+            normals = [coord for normal in normals for coord in normal]
+        if colors is not None:
+            colors = [channel for color in colors for channel in color]
+        indices = [index for triangle in indices for index in triangle]
+        mesh_instance = cls(vertices, uvs=uvs ,normals=normals ,colors=colors, indices=indices, verbose=verbose)
+
+        assimp.release(asset)
+
+        # return cls(parameters)
+        return mesh_instance
+
+    # assimp hierarchy
+    @staticmethod
+    def traverse_hierarchy(node,level = 0):
+        print("  " + "\t" * level + "- " + str(node))
+        for child in node.children:
+            BaseMesh.traverse_hierarchy(child, level + 1)
 
 
 class Triangle(BaseMesh):
@@ -294,7 +405,65 @@ class Line(BaseMesh):
         # when calling methods within the class, we don't need to pass self.
         super().__init__(vertices, uvs=uvs, normals=normals, colors=colors, drawing_mode=gl.GL_LINES)
 
-class Gizmo(BaseMesh):
+class CameraGizmoMesh(BaseMesh):
+
+    def __init__(self):
+        # it's going to be a tetrahedron
+        # the origin (tip of the tetrahedron) it's going to be at zero
+
+        # 8 lines
+        # O - LT
+        # O - RT
+        # O - LB
+        # O - RB
+        # LT - RT
+        # RT - RB
+        # RB - LB
+        # LB - LT
+        z = 0.5
+        width = 0.25
+        height = 0.25
+        x = width / 2.0
+        y = height / 2.0
+
+        default_vertices = [
+
+            # O - LT
+            0, 0, 0,        # 0
+            -x, y, -z,      # LT
+
+            # O - RT
+            0, 0, 0,        # 0
+            x, y, -z,      # RT
+
+            # O - LB
+            0, 0, 0,        # 0
+            -x, -y, -z,      # LB
+
+            # O - RB
+            0, 0, 0,        # 0
+            x, -y, -z,      # RB
+
+            # LT - RT
+            -x, y, -z,      # LT
+            x, y, -z,      # RT
+
+            # RT - RB
+            x, y, -z,      # RT
+            x, -y, -z,      # RB
+
+            # RB - LB
+            x, -y, -z,      # RB
+            -x, -y, -z,      # LB
+
+            # LB - LT
+            -x, -y, -z,      # LB
+            -x, y, -z,      # LT
+        ]
+
+        super().__init__(default_vertices, drawing_mode=gl.GL_LINES)
+
+class GizmoMesh(BaseMesh):
 
     def __init__(self):
 

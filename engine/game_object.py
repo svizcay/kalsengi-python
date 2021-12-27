@@ -36,3 +36,9 @@ class GameObject:
         component = component_type(self, *params)
         self.components.append(component)
         return component
+
+    def get_component(self, component_type):
+        for component in self.components:
+            if isinstance(component, component_type):
+                return component
+        return None

@@ -1,7 +1,11 @@
 import pyrr
 
 from .component import Component
-from .transform import Transform
+# from .transform import Transform
+# we are having issues trying to reference a module from a parent directory.
+# in anyway, it seems that as lons as we don't instantiate an object of a class
+# we can use a class without imporing it (python dynamic typing)
+# from engine import Transform # for parent directory
 
 
 # camera is a component.
@@ -9,6 +13,7 @@ from .transform import Transform
 # they can only 'add' them to gameObjects, i.e. the component's transform
 # it's take from the gameObject.
 # the component needs to belong to a gameObject as well
+from engine.gui import CameraGUI
 
 class Camera(Component):
 
@@ -38,6 +43,11 @@ class Camera(Component):
         self._far = 1000
 
         self.clear_color = (0.705, 0.980, 0.992) # light blue
+
+        # whenever we have a class that inherits from Component
+        # and we DO have a valid component gui, then set it
+        self.gui = CameraGUI(self)
+        self.name = "camera"
 
         # we dont have direct access to the internal transform
         # we are going to provide some utilities to set the camera

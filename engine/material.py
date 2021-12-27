@@ -36,6 +36,8 @@ class Material:
         self.vertex_attribs = {}
         self.discarded_vertex_attribs = {}
 
+        self.gui = None
+
         # no need to bind program yet
         nr_uniforms = gl.glGetProgramiv(shader.program, gl.GL_ACTIVE_UNIFORMS)
         for i in range(nr_uniforms):

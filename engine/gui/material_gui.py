@@ -5,6 +5,7 @@ class MaterialGUI:
 
     def __init__(self, material):
         self.material = material
+        self.material.gui = self
 
     def draw(self):
         # draw uniform slots

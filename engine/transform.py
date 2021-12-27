@@ -153,8 +153,10 @@ class Transform:
             x_rot_rad = -math.atan2(self._rotation_mat[2,1]/cos_beta, self._rotation_mat[2,2]/cos_beta)
             x_rot = math.degrees(x_rot_rad)
             self.last_euler_angle_z = z_rot
+            self.last_euler_angle_x = x_rot
         else:
             # fix one of the angles to any value
+            print("last euler angles = ({},{},{})".format(self.last_euler_angle_x, y_rot, self.last_euler_angle.z))
             z_rot = self.last_euler_angle_z
             # x = atan(R21, R22) - z
             x_rot_rad = math.atan2(self._rotation_mat[0,1], self._rotation_mat[1,1]) - z_rot
@@ -316,6 +318,8 @@ class Transform:
         view_matrix = self.parent.view_mat if self.parent is not None else pyrr.matrix44.create_identity()
         # we use the property to access the local view matrix in case is dirty
         return pyrr.matrix44.multiply(self.local_view_mat, view_matrix)
+        # debugging
+        # return self.local_view_mat
 
     @property
     def local_model_mat(self):
@@ -540,8 +544,8 @@ class Transform:
         # it doesn't seem we are using the matrices at all but the internal raw values
         # if (self._translation_dirty):
         #     self._update_translation_matrix()
-        # if (self._rotation_dirty):
-        #     self._update_rotation_matrix()
+        if (self._rotation_dirty):
+            self._update_rotation_matrix()
         # if (self._scale_dirty):
         #     self._update_scale_matrix()
         inverse_translation = pyrr.matrix44.create_from_translation(-self._local_position)
@@ -551,7 +555,10 @@ class Transform:
             -self._local_rotation[2],
             self._local_rotation[3]
         ]
-        inverse_rotation = Transform.matrix_from_quaternion(inverse_quaternion)
+        # by using the quaternion to get the inverse of the rotation
+        # we are getting a transposed matrix
+        # inverse_rotation = Transform.matrix_from_quaternion(inverse_quaternion)
+        inverse_rotation = self._rotation_mat.T
 
         inverse_scale = pyrr.matrix44.create_from_scale(np.reciprocal(self._local_scale))
         # local view = inverse_scale * inverse_rotation * inverse_translation

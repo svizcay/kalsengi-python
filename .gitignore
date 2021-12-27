@@ -1,5 +1,8 @@
 ####################### vim files #######################
 *.swp
+####################### asset files #######################
+models/*
+img/*
 
 ####################### python development related stuff #######################
 # Byte-compiled / optimized / DLL files

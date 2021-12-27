@@ -66,7 +66,7 @@ class Shader:
         # observer.stop()
         # observer.join() when finishing the program
 
-        print("main thread id={}".format(threading.get_ident()))
+        # print("main thread id={}".format(threading.get_ident()))
 
         self._compile(vertex_src, fragment_src, *additional_shaders)
 

@@ -1,26 +1,39 @@
 # for creating VAO and querying shader
 import OpenGL.GL as gl
-from . import vertex_attrib_loc
-from .gl_uniform import set_uniform, gl_uniform_type_to_f
+# from . import vertex_attrib_loc
+from engine import vertex_attrib_loc
+# from .gl_uniform import set_uniform, gl_uniform_type_to_f
+from engine.gl_uniform import set_uniform, gl_uniform_type_to_f
+
+from .component import Component
+
+from engine.gui import MeshRendererGUI
 
 import ctypes
 
-class MeshRenderer:
+class MeshRenderer(Component):
     """ This class is in charge of rendering a model using some material."""
 
-    def __init__(self, mesh, shader):
+    def __init__(self, game_object, mesh, material):
+        super().__init__(game_object)
 
+        self.material = material
         self.mesh = mesh
-        self.shader = shader
+        self.shader = material.shader
+
+        # whenever we have a class that inherits from Component
+        # and we DO have a valid component gui, then set it
+        self.gui = MeshRendererGUI(self)
+        self.name = "mesh renderer"
 
         self.uniforms = {}
 
         # we could check what are the available uniforms and attribs
-        print("list of available uniforms in shader {}".format(shader.program))
-        nr_uniforms = gl.glGetProgramiv(shader.program, gl.GL_ACTIVE_UNIFORMS)
+        print("list of available uniforms in shader {}".format(self.shader.program))
+        nr_uniforms = gl.glGetProgramiv(self.shader.program, gl.GL_ACTIVE_UNIFORMS)
         for i in range(nr_uniforms):
             # name comes in a bytestring -> needs ascii decoding
-            name, size, type = gl.glGetActiveUniform(shader.program, i)
+            name, size, type = gl.glGetActiveUniform(self.shader.program, i)
             name = name.decode("ascii")
             # don't we need to bind the program fist before
             # querying for locations?
@@ -28,7 +41,7 @@ class MeshRenderer:
             # that's why we pass the program to glGetUniformLocation.
             # for glUniform is different. They don't take the program as parameter
             # and the program needs to be bound
-            loc = gl.glGetUniformLocation(shader.program, name);
+            loc = gl.glGetUniformLocation(self.shader.program, name);
             uniform = {}
             uniform["name"] = name
             uniform["loc"] = loc
@@ -65,12 +78,12 @@ class MeshRenderer:
         # let's check what's available in the shader
         # do we need the glUseProgram() when calling glGetAttribLocation?
         for attrib in vertex_attrib_loc:
-            loc = gl.glGetAttribLocation(shader.program, attrib)
+            loc = gl.glGetAttribLocation(self.shader.program, attrib)
             if (loc >= 0):
                 # things to test:
                 # - do not enable the attrib at all if vertex doesn't have data
                 # - enable attrib but don't specify any layout (attribPointer)
-                print("{} attrib available in shader {}".format(attrib, shader.program))
+                print("{} attrib available in shader {}".format(attrib, self.shader.program))
                 if mesh.attribs[attrib] is not None:
                     print("{} attrib available in mesh data".format(attrib))
                     gl.glEnableVertexAttribArray(loc)
@@ -92,7 +105,7 @@ class MeshRenderer:
                     gl.glDisableVertexAttribArray(loc)
                     print("{} attrib not available in mesh data".format(attrib))
             else:
-                print("{} attrib not available in shader {}".format(attrib, shader.program))
+                print("{} attrib not available in shader {}".format(attrib, self.shader.program))
 
         gl.glBindVertexArray(0)
 

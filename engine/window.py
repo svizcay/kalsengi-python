@@ -1,22 +1,10 @@
 import glfw
-
 import OpenGL.GL as gl
-
-import pyassimp as assimp
-
 import pyrr
-
 import imgui
-# integrator (backend for imgui)
 from imgui.integrations.glfw import GlfwRenderer
-
 import cv2
-
-# from testwindow import show_test_window
-# we need to let imgui create its context (nothing to do with opengl context)
-# the actual opengl context is created as always using glfw and we store the 'window' (opengl context ref)
-# we then create an instance of a 'python' GlfwRenderer (passing to its constructor the glfw window)
-# that's all for the setup
+# from math import sin
 
 # for the render loop:
 # check window's closing status as always with glfw should close
@@ -26,7 +14,7 @@ import cv2
 # addiotionally, we need to let 'imgui' process input (actually we ask that to the GlfwRenderer instance)
 
 # render loop but only related to imgui:
-# start new frame with imgui.new_frame(). there is no imgui.end_frame for glfw example??
+# start new frame with imgui.new_frame()
 # render loop should finish with:
 # - imgui.render()
 # - imp (instance of glfwRenderer) imp.render(imgui.get_draw_data())
@@ -37,25 +25,25 @@ import cv2
 # for the tearing down:
 # before terminating glfw, call the shutdown of the renderer (the instance of the GlfwRenderer)
 
-from math import sin
+from .components import MeshRenderer, Camera
+# from .mesh_renderer import MeshRenderer
+# from .camera import Camera
 
-from .base_mesh import BaseMesh, Triangle, Quad, Cube, Line, Gizmo
+from .base_mesh import BaseMesh, Triangle, Quad, Cube, Line, GizmoMesh
 from .shader import Shader
 from .material import Material
-from .mesh_renderer import MeshRenderer
 from .texture import Texture
 from .framebuffer import Framebuffer
-from . import VertexAttrib
-from .camera import Camera
+from . import VertexAttrib # this was defined in __init__.py
 from .free_fly_camera import FreeFlyCamera
 from .transform import Transform
 from .game_object import GameObject
 from .fps_counter import FPSCounter
 from .scene import Scene
+
 from .gui import TransformGUI
 from .gui import CameraGUI
 from .gui import MaterialGUI
-
 
 # we are not getting this callback executed anymore
 # since we started using imgui
@@ -71,13 +59,6 @@ def framebuffer_size_callback(context, width, height):
 
 def cursor_position_callback(context, xpos, ypos):
     print("cursor event: {}x{}".format(xpos, ypos))
-
-
-# assimp hierarchy
-def recur_node(node,level = 0):
-    print("  " + "\t" * level + "- " + str(node))
-    for child in node.children:
-        recur_node(child, level + 1)
 
 class Window:
     # new in python 3.5:
@@ -132,6 +113,8 @@ class Window:
 
         glfw.make_context_current(self._context)
 
+        # i should decide whether i'm going to use pyrr.Vector
+        # individual floats or python arrays to represent x,y,z rgb data
         # self.clear_color = (0.2, 0.258, 0.258) # green-grey
         self.clear_color = (0.093, 0.108, 0.108) # green-grey
 
@@ -165,75 +148,82 @@ class Window:
         # scene = collection of gameObjects
         self.scene = Scene()
 
-        # self.scene.add_game_object("obj1")
-        # self.scene.add_game_object("obj2")
+        # monkey_go = GameObject("monkey")
+        # dragon_go = GameObject("dragon")
+        # plane_go = GameObject("floor")
+        # cube_go = GameObject("cube")
 
-        # monkey
-        self.monkey_go = GameObject("monkey")
-        self.scene.add_game_object(self.monkey_go)
-        self.monkey_object = {}
+        blender_quad = GameObject("blender quad")
+        game_camera = GameObject("game camera")
+        game_camera.transform.local_position = pyrr.Vector3([0, 1, 2.5])
+        game_camera.transform.local_euler_angles = pyrr.Vector3([-20, 0, 0])
 
-        # the asset needs to be free at the end
+        # set initial transforms
+        # monkey_go.transform.local_position = pyrr.Vector3([0, 3, 0])
+        # monkey_go.transform.local_euler_angles = pyrr.Vector3([270, 0, 0])
+        # plane_go.transform.local_euler_angles = pyrr.Vector3([270, 0, 0])
+        # plane_go.transform.local_scale = pyrr.Vector3([10,10,10])
+        # cube_go.transform.local_position = pyrr.Vector3([0, 0.5, 0])
+
         print("about to load something with assimp")
-        self.monkey_asset = assimp.load("models/suzanne/suzanne.fbx", processing=assimp.postprocess.aiProcess_Triangulate)
+        # plane_mesh = Quad()
+        # cube_mesh = Cube()
+        # monkey_mesh = BaseMesh.from_file("models/suzanne/suzanne.fbx", True)
+        # dragon_mesh = BaseMesh.from_file("models/xyzrgb_dragon/xyzrgb_dragon.obj", True)
+        # blender_quad_mesh = BaseMesh.from_file("models/primitives/plane_vertices.obj", True)
+        # blender_quad_mesh = BaseMesh.from_file("models/xyzrgb_dragon/xyzrgb_dragon.obj", False)
+        # blender_quad_mesh = BaseMesh.from_file("models/primitives/plane_vertices.obj", False)
+        # blender_quad_mesh = BaseMesh.from_file("models/suzanne/suzanne.fbx", False)
+        blender_quad_mesh = Cube()
+        # blender_quad.transform.local_scale = pyrr.Vector3([0.1, 0.1, 0.1])
+        # gizmo = Gizmo()
 
-        print("SCENE:")
-        print("  meshes:" + str(len(self.monkey_asset.meshes)))
-        print("  materials:" + str(len(self.monkey_asset.materials)))
-        print("  textures:" + str(len(self.monkey_asset.textures)))
-        print("NODES:")
-        recur_node(self.monkey_asset.rootnode)
+        # load shaders
+        # make a shader manager to show what's avaiable -> related to materials
+        # what would be the difference between a shader manager and a material manager?
+        # what i want:
+        # - compile many combinations of shaders (no need to be fully exhaustive...just a way to do it once)
+        # - list what are the available shaders
+        # for now, let's load some mvp shaders here
+        # list of mvp shaders i have available:
+        # - vertex just sending position (simple_mvp.glsl)
+        # - vertex forwarding vertex color (simple_mvp_color.glsl)
+        # - vertex forwarding vertex uv (simple_mpv_uv.glsl)
+        # what happens if a vertex forwards some data but fragment doesn't take it in??
+        # does the compilation fail?
+        # - fragment flat color defined in the shader (flat_color.glsl)
+        # - fragment flat color defined by uniform (flat_color_uniform.glsl)
+        # - fragment fixed red channel chaning over time - time as uniform (flat_time_color.glsl)
+        # - fragment that outputs vertex color (vertex_color.glsl)
+        # - fragment that takes uv and mixes two textures (mix_textures.glsl)
+        # - fragment that takes uv and output texture color (txture_color.glsl)
+        # - fragment that takes uv and output texture color multiplied by uniform color (texture_uniform_colog.glsl)
+        # - fragment that takes uv and output texture color multiplied by vertex color (texture_vertex_color.glsl)
 
-        print("MESHES:")
-        meshes = []
-        for index, mesh in enumerate(self.monkey_asset.meshes):
-            meshes.append(mesh)
-            print("  MESH" + str(index+1))
-            print("    material id:" + str(mesh.materialindex+1))
-            print("    vertices:" + str(len(mesh.vertices)))
-            print("    first 3 verts:\n" + str(mesh.vertices[:3]))
-            if mesh.normals.any():
-                    print("    first 3 normals:\n" + str(mesh.normals[:3]))
-            else:
-                    print("    no normals")
-            print("    colors:" + str(len(mesh.colors)))
-            tcs = mesh.texturecoords
-            if tcs.any():
-                for tc_index, tc in enumerate(tcs):
-                    print("    texture-coords "+ str(tc_index) + ":" + str(len(tcs[tc_index])) + "first3:" + str(tcs[tc_index][:3]))
+        flat_color_uniform_shader = Shader.from_file(
+            "engine/shaders/vertex/simple_mvp.glsl",
+            "engine/shaders/fragment/flat_color_uniform.glsl"
+        )
 
-            else:
-                print("    no texture coordinates")
-            print("    uv-component-count:" + str(len(mesh.numuvcomponents)))
-            print("    faces:" + str(len(mesh.faces)) + " -> first:\n" + str(mesh.faces[:3]))
-            print("    bones:" + str(len(mesh.bones)) + " -> first:" + str([str(b) for b in mesh.bones[:3]]))
-            print
+        # flat_color_shader = Shader.from_file(
+        #     "engine/shaders/vertex/simple_mvp.glsl",
+        #     "engine/shaders/fragment/flat_color.glsl"
+        # )
 
-        # print(meshes[0].vertices[:3])
-        # print(self.monkey_asset.meshes[0])
-        # print("nr meshes in monkey asset: ".format(len(self.monkey_asset.meshes)))
-        # monkey_mesh = self.monkey_asset.meshes[0]
+        texture_shader = Shader.from_file(
+            "engine/shaders/vertex/simple_mvp_uv.glsl",
+            "engine/shaders/fragment/texture_uniform_color.glsl"
+        )
 
-        self.monkey_object["mesh"] = BaseMesh(meshes[0].vertices, uvs = meshes[0].texturecoords[0], indices=meshes[0].faces)
+        uv_shader = Shader.from_file(
+            "engine/shaders/vertex/simple_mvp_uv.glsl",
+            "engine/shaders/fragment/uv_color.glsl"
+        )
 
-        self.plane_go = GameObject("floor")
-        self.plane_object = {}
-        self.plane_object["mesh"] = Quad()
-
-        # cube
-        self.cube_object = {}
-        self.cube_object["mesh"] = Cube()
-
-        # line
-        gizmo = Gizmo()
-
-        # triangle = Triangle()
-        # triangle = Triangle(VertexAttrib.POS)
-        # triangle = Triangle(VertexAttrib.COLOR)
-        # triangle = Triangle(VertexAttrib.POS | VertexAttrib.COLOR)
-        # triangle = Triangle(VertexAttrib.UV | VertexAttrib.COLOR)
-        # triangle = Triangle(VertexAttrib.UV | VertexAttrib.NORMAL | VertexAttrib.COLOR)
-        # triangle = Triangle(VertexAttrib.UV | VertexAttrib.COLOR)
+        # gizmo_shader = Shader.from_file(
+        #     "engine/shaders/vertex/simple_mvp_color.glsl",
+        #     "engine/shaders/fragment/vertex_color.glsl"
+        # )
 
         # i want to test every triangle every shader?
         # shader = Shader(vertex_src, frag_src)
@@ -249,110 +239,78 @@ class Window:
         # shader = Shader("engine/shaders/vertex/simple_mvp_uv.glsl", "engine/shaders/fragment/texture_color.glsl")
         # self.shader = Shader("engine/shaders/vertex/simple_mvp.glsl", "engine/shaders/fragment/flat_time_color.glsl")
 
-        self.plane_object["shader"] = Shader.from_file(
-            "engine/shaders/vertex/simple_mvp.glsl",
-            # "engine/shaders/fragment/flat_color_uniform.glsl"
-            "engine/shaders/fragment/flat_color.glsl"
-        )
+        # add components to game objects
 
-        # self.cube_object["shader"] = Shader("engine/shaders/vertex/simple_mvp.glsl", "engine/shaders/fragment/texture_color.glsl")
-        shader = Shader.from_file(
-            "engine/shaders/vertex/simple_mvp_uv.glsl",
-            # "engine/shaders/fragment/mix_textures.glsl"
-            "engine/shaders/fragment/texture_uniform_color.glsl"
-        )
-
-        self.material = Material(shader)
-        self.material_gui = MaterialGUI(self.material)
-
-        self.cube_object["shader"] = shader
-        # self.cube_object["shader"] = Shader("engine/shaders/vertex/simple_mvp.glsl", "engine/shaders/fragment/flat_time_color.glsl")
-
-        self.plane_object["renderer"] = MeshRenderer(
-            self.plane_object["mesh"],
-            self.plane_object["shader"]
-        )
-
-        self.cube_object["renderer"] = MeshRenderer(
-            self.cube_object["mesh"],
-            self.cube_object["shader"]
-        )
-
-        self.monkey_object["renderer"] = MeshRenderer(
-            self.monkey_object["mesh"],
-            shader
-        )
-        self.monkey_object["shader"] = shader
-        self.monkey_go.transform.local_position = pyrr.Vector3([0, 3, 0])
-        self.monkey_go.transform.local_euler_angles = pyrr.Vector3([270, 0, 0])
-
-        gizmo_shader = Shader.from_file(
-            "engine/shaders/vertex/simple_mvp_color.glsl",
-            "engine/shaders/fragment/vertex_color.glsl"
-        )
-        self.gizmo_renderer = MeshRenderer(
-            gizmo,
-            gizmo_shader
-        )
-
-        # self.plane_object["transform"] = Transform()
-        # self.plane_go.transform.position = pyrr.Vector3([0, 0, -1])
-        # self.plane_go.transform.local_position = pyrr.Vector3([0, 0, 0])
-        # rotation now it's a quaternion.
-        # we need to provide a set property to set local euler angles
-        # self.plane_go.transform.rotation = pyrr.Vector3([270, 0, 0])
-        self.plane_go.transform.local_euler_angles = pyrr.Vector3([270, 0, 0])
-        # print("plane model matrix {}".format(self.plane_go.transform.model_mat))
-        # self.plane_go.transform.local_scale = pyrr.Vector3([10,10,10])
-        self.plane_go.transform.local_scale = pyrr.Vector3([10,10,10])
-        # self.plane_go.transform.local_scale = pyrr.Vector3([2,2,2])
-
-        # lets not create the transform directly but via gameObject
-        self.cube_go = GameObject("cube")
-        self.scene.add_game_object(self.cube_go)
-        self.cube_go.transform.local_position = pyrr.Vector3([0, 0.5, 0])
-        # print("cube model matrix {}".format(self.cube_go.transform.model_mat))
-        # self.cube_object["transform"] = Transform()
-        # self.cube_object["transform"].position = pyrr.Vector3([0, 0.5, 0])
-
-        # self.cube_object["transform-gui"] = TransformGUI(self.cube_object["transform"])
-        self.cube_object["transform-gui"] = TransformGUI(self.cube_go.transform)
-
-        # # setting up textures
-        self.texture1 = Texture.from_image("img/ash_uvgrid01.jpg")
-        self.texture2 = Texture.from_image("img/wall.jpg")
-        self.texture3 = Texture.from_image("img/awesomeface.png")
-
-
-        # material initial set up (uniforms)
-        gl.glUseProgram(self.plane_object["shader"].program)
-        self.plane_object["renderer"].set_uniform("color", 0.349, 0.349, 0.349)
-
-        gl.glUseProgram(self.cube_object["shader"].program)
-        self.texture1.bind()
-        self.cube_object["renderer"].set_uniform("texture0", 0)
-        self.texture2.bind(1)
-        self.cube_object["renderer"].set_uniform("texture1", 1)
+        # # add renderers
+        # redenderers now should not take shaders direclty BUT MATERIALS
+        # plane_go.add_component(MeshRenderer, plane_mesh, flat_color_shader)
+        # cube_go.add_component(MeshRenderer, cube_mesh, texture_shader)
+        # monkey_go.add_component(MeshRenderer, monkey_mesh, texture_shader)
+        # # dragon_go.add_component(MeshRenderer, dragon_mesh, texture_shader)
+        # self.gizmo_renderer = MeshRenderer(
+        #     None,
+        #     gizmo,
+        #     gizmo_shader
+        # )
 
         self.editor_scene_size = (890, 500)
+        self.game_camera_component = game_camera.add_component(Camera, self.editor_scene_size[0]/self.editor_scene_size[1])
 
+        # flat_color_material = Material(flat_color_uniform_shader)
+        flat_color_material = Material(texture_shader)
+        uv_material = Material(uv_shader)
+        material_gui = MaterialGUI(uv_material)
+
+        blender_quad.add_component(MeshRenderer, blender_quad_mesh, uv_material)
+
+        # self.scene.add_game_object(dragon_go)
+        # self.scene.add_game_object(monkey_go)
+        # self.scene.add_game_object(plane_go)
+        # self.scene.add_game_object(cube_go)
+        self.scene.add_game_object(blender_quad)
+        self.scene.add_game_object(game_camera)
+
+        # triangle = Triangle()
+        # triangle = Triangle(VertexAttrib.POS)
+        # triangle = Triangle(VertexAttrib.COLOR)
+        # triangle = Triangle(VertexAttrib.POS | VertexAttrib.COLOR)
+        # triangle = Triangle(VertexAttrib.UV | VertexAttrib.COLOR)
+        # triangle = Triangle(VertexAttrib.UV | VertexAttrib.NORMAL | VertexAttrib.COLOR)
+        # triangle = Triangle(VertexAttrib.UV | VertexAttrib.COLOR)
+
+        # # # setting up textures
+        self.texture1 = Texture.from_image("img/ash_uvgrid01.jpg")
+        # self.texture2 = Texture.from_image("img/wall.jpg")
+        # self.texture3 = Texture.from_image("img/awesomeface.png")
+
+        # # material initial set up (uniforms)
+        # # to set uniform values, shader program needs to be 'active' (use)
+        # flat_color_renderer = plane_go.get_component(MeshRenderer)
+        # flat_color_renderer.shader.use()# replaces gl.glUseProgram(programID)
+        # flat_color_renderer.set_uniform("color", 0.349, 0.349, 0.349)
+
+        # texture_renderer = cube_go.get_component(MeshRenderer)
+        # texture_renderer.shader.use()
+        uv_shader.use()
+        self.texture1.bind()
+        # texture_renderer.set_uniform("texture0", 0)
+        uv_material.set_uniform("texture0", 0)
+        # self.texture2.bind(1)
+        # texture_renderer.set_uniform("texture1", 1)
+
+
+        # camera stuff
         print("creating scene camera gameObject")
         self.camera_go = GameObject("scene camera")
         self.camera = self.camera_go.add_component(Camera, self.editor_scene_size[0]/self.editor_scene_size[1])
         self.camera_go.transform.local_position = pyrr.Vector3([0, 1.7, 5])
-        print("scene camera view matrix {}".format(self.camera_go.transform.view_mat))
-        print("field of view: {}".format(self.camera.vfov))
-        print("**********")
+        # print("scene camera view matrix {}".format(self.camera_go.transform.view_mat))
+        # print("field of view: {}".format(self.camera.vfov))
+        # print("**********")
         self.camera_gui = CameraGUI(self.camera)
         self.camera_transform_gui = TransformGUI(self.camera_go.transform)
-        # self.free_fly_camera = FreeFlyCamera(self.camera_go.transform)
-        self.free_fly_camera = FreeFlyCamera(self.cube_go.transform)
-
-        # game camera
-        self.game_camera_go = GameObject("game camera")
-        self.game_camera = self.game_camera_go.add_component(Camera, self.editor_scene_size[0]/self.editor_scene_size[1])
-        self.game_camera_go.transform.position = pyrr.Vector3([0, 1.7, 5])
-        # self.game_camera_gui = CameraGUI(self.camera)
+        self.free_fly_camera = FreeFlyCamera(self.camera_go.transform)
+        # self.free_fly_camera = FreeFlyCamera(self.cube_go.transform)
 
         # setting up frame bufffer for the editor scene
         self.scene_framebuffer = Framebuffer(*self.editor_scene_size)
@@ -422,62 +380,10 @@ class Window:
         gl.glClearColor(*self.camera.clear_color, 1)# light blue
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
 
+        self.scene.draw_scene(self.camera)
 
-        # # this should be avoided and done only when there are changes
-        # self.mvp = pyrr.matrix44.multiply(self.transform.model_mat, self.camera.projection) # this works
-        # # self.mvp = self.translation * self.camera.projection # it didn't work
-        # # self.mvp = self.camera.projection * self.translation
-        # self.mesh_renderer.set_uniform("mvp", self.mvp) # sample2D needs the texture unit
-        # self.mesh_renderer.set_uniform("time", currentTime) # sample2D needs the texture unit
-
-        # render
-        # if self.draw_scene:
-        #     self.mesh_renderer.render()
-
-        # draw plane
-        self.plane_object["shader"].use()
-        plane_object_mvp = pyrr.matrix44.multiply(
-            pyrr.matrix44.multiply(self.plane_go.transform.model_mat, self.camera.transform.view_mat),
-            self.camera.projection)
-        self.plane_object["renderer"].set_uniform("mvp", plane_object_mvp)
-        self.plane_object["renderer"].render()
-
-        # draw cube
-        # self.texture1.bind()
-        self.cube_object["shader"].use()
-        cube_object_mvp = pyrr.matrix44.multiply(
-            pyrr.matrix44.multiply(self.cube_go.transform.model_mat, self.camera.transform.view_mat),
-            self.camera.projection)
-        # cube_object_mvp = pyrr.matrix44.multiply(
-        #     pyrr.matrix44.multiply(self.cube_object["transform"].model_mat, self.camera.transform.view_mat),
-        #     self.camera.projection)
-        self.cube_object["renderer"].set_uniform("mvp", cube_object_mvp)
-        # we don't need to update the uniform (saying which texture unit to use)
-        # but we need to make sure
-        # we have the right texture bound at each texture unit
-        self.texture1.bind()
-        self.texture2.bind(1)
-        self.cube_object["renderer"].render()
-        # self.cube_object["renderer"].set_uniform("time", currentTime)
-        # self.texture1.bind()
-        # self.cube_object["renderer"].set_uniform("texture0", 0)
-
-        # draw monkey
-        self.monkey_object["shader"].use()
-        monkey_object_mvp = pyrr.matrix44.multiply(
-            pyrr.matrix44.multiply(self.monkey_go.transform.model_mat, self.camera.transform.view_mat),
-            self.camera.projection)
-        self.monkey_object["renderer"].set_uniform("mvp", monkey_object_mvp)
-        self.monkey_object["renderer"].render()
-
-        # draw line
-        self.gizmo_renderer.shader.use()
-        gizmo_object_mvp = pyrr.matrix44.multiply(
-            pyrr.matrix44.multiply(self.cube_go.transform.model_mat, self.camera.transform.view_mat),
-            self.camera.projection)
-        self.gizmo_renderer.set_uniform("mvp", gizmo_object_mvp)
-        gl.glClear(gl.GL_DEPTH_BUFFER_BIT)
-        self.gizmo_renderer.render()
+        # draw overlays such as gizmos
+        self.scene.draw_overlay(self.camera)
 
         # restore framebuffer and viewport
         gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, 0)
@@ -488,29 +394,10 @@ class Window:
         """ similar to render scene but using a game camera."""
         gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, self.game_framebuffer.fbo)
         gl.glViewport(0, 0, *self.editor_scene_size)
-        gl.glClearColor(*self.game_camera.clear_color, 1)# light blue
+        gl.glClearColor(*self.game_camera_component.clear_color, 1)# light blue
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
 
-        # draw plane
-        self.plane_object["shader"].use()
-        plane_object_mvp = pyrr.matrix44.multiply(
-            pyrr.matrix44.multiply(self.plane_go.transform.model_mat, self.game_camera.transform.view_mat),
-            self.game_camera.projection)
-        self.plane_object["renderer"].set_uniform("mvp", plane_object_mvp)
-        self.plane_object["renderer"].render()
-
-        # draw cube
-        self.cube_object["shader"].use()
-        # cube_object_mvp = pyrr.matrix44.multiply(
-        #     pyrr.matrix44.multiply(self.cube_object["transform"].model_mat, self.game_camera.transform.view_mat),
-        #     self.game_camera.projection)
-        cube_object_mvp = pyrr.matrix44.multiply(
-            pyrr.matrix44.multiply(self.cube_go.transform.model_mat, self.game_camera.transform.view_mat),
-            self.game_camera.projection)
-        self.cube_object["renderer"].set_uniform("mvp", cube_object_mvp)
-        self.texture1.bind()
-        self.texture2.bind(1)
-        self.cube_object["renderer"].render()
+        self.scene.draw_scene(self.game_camera_component)
 
         # restore framebuffer and viewport
         gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, 0)
@@ -545,8 +432,8 @@ class Window:
         # setting size 0 = autofit
         imgui.set_next_window_size(0, 0)
         imgui.begin("Hierarchy")
-        self.material_gui.draw()
-        imgui.separator()
+        # self.material_gui.draw()
+        # imgui.separator()
         # imgui.text("test text")
         imgui.text("scene window focused = {}".format(self.scene_imgui_window_focused))
         # self.cube_object["transform-gui"].draw()
@@ -709,9 +596,9 @@ class Window:
             self.fps_counter.update(self.current_time, self.delta_time)
 
             self.process_input()
-            # additional checks
-            if self.plane_object["shader"].dirty:
-                self.plane_object["shader"].reload()
+            # additional checks for reloading shaders
+            # if self.plane_object["shader"].dirty:
+            #     self.plane_object["shader"].reload()
 
             if self.use_imgui:
                 self.impl.process_inputs()
@@ -731,7 +618,7 @@ class Window:
                 imgui.new_frame()
 
             self.render_scene()
-            self.render_game()
+            self.render_game() # render the scene using the game camera instead of the scene camera
 
             if self.use_imgui:
                 self.draw_gui()
@@ -750,9 +637,6 @@ class Window:
         # opencv
         if self.render_webcam:
             self.vid.release()
-
-        # assimp models
-        assimp.release(self.monkey_asset)
 
         if self.use_imgui:
             self.impl.shutdown()

@@ -35,8 +35,18 @@ vertex_attrib_loc = {
     "color" : 3,
 }
 
+# should i include all classes at this directory here?
 from .window import Window
-from .base_mesh import Triangle
 from .scene import Scene
+
+from .base_mesh import BaseMesh, Triangle, Quad, Cube, Line, GizmoMesh
+from .shader import Shader
+from .material import Material
+from .texture import Texture
+from .framebuffer import Framebuffer
+from .free_fly_camera import FreeFlyCamera
+from .transform import Transform
+from .game_object import GameObject
+from .fps_counter import FPSCounter
 
 

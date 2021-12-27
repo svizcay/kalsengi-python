@@ -20,4 +20,15 @@ class GameObjectGUI:
         self.transform_gui.draw()
 
         # for each component, draw its gui
+        # how can i get the GUI instances of each component without having
+        # the components having a reference to them?
+        # we need some manager that links components with componentsGUIs
+        # and then we need to ask that manager to see if a given component has some gui to draw.
+        # sound a bit complicated for now.
+        # let's make each component to hold an instance to some componentGUI instance
+        for component in self.game_object.components:
+            if component.gui is not None:
+                component.gui.draw()
+        #     if isinstance(component, MeshRenderer):
+
         imgui.end()
