@@ -171,11 +171,11 @@ class Window:
         # monkey_mesh = BaseMesh.from_file("models/suzanne/suzanne.fbx", True)
         # dragon_mesh = BaseMesh.from_file("models/xyzrgb_dragon/xyzrgb_dragon.obj", True)
         # blender_quad_mesh = BaseMesh.from_file("models/primitives/plane_vertices.obj", True)
-        # blender_quad_mesh = BaseMesh.from_file("models/xyzrgb_dragon/xyzrgb_dragon.obj", False)
+        blender_quad_mesh = BaseMesh.from_file("models/xyzrgb_dragon/xyzrgb_dragon.obj", False)
         # blender_quad_mesh = BaseMesh.from_file("models/primitives/plane_vertices.obj", False)
         # blender_quad_mesh = BaseMesh.from_file("models/suzanne/suzanne.fbx", False)
-        blender_quad_mesh = Cube()
-        # blender_quad.transform.local_scale = pyrr.Vector3([0.1, 0.1, 0.1])
+        # blender_quad_mesh = Cube()
+        blender_quad.transform.local_scale = pyrr.Vector3([0.1, 0.1, 0.1])
         # gizmo = Gizmo()
 
         # load shaders
@@ -220,6 +220,11 @@ class Window:
             "engine/shaders/fragment/uv_color.glsl"
         )
 
+        normal_shader = Shader.from_file(
+            "engine/shaders/vertex/simple_mvp_normal.glsl",
+            "engine/shaders/fragment/normal_color.glsl"
+        )
+
         # gizmo_shader = Shader.from_file(
         #     "engine/shaders/vertex/simple_mvp_color.glsl",
         #     "engine/shaders/fragment/vertex_color.glsl"
@@ -259,9 +264,12 @@ class Window:
         # flat_color_material = Material(flat_color_uniform_shader)
         flat_color_material = Material(texture_shader)
         uv_material = Material(uv_shader)
-        material_gui = MaterialGUI(uv_material)
+        normal_material = Material(normal_shader)
 
-        blender_quad.add_component(MeshRenderer, blender_quad_mesh, uv_material)
+        # material_gui = MaterialGUI(uv_material)
+        material_gui = MaterialGUI(normal_material)
+
+        blender_quad.add_component(MeshRenderer, blender_quad_mesh, normal_material)
 
         # self.scene.add_game_object(dragon_go)
         # self.scene.add_game_object(monkey_go)
@@ -397,7 +405,7 @@ class Window:
         gl.glClearColor(*self.game_camera_component.clear_color, 1)# light blue
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
 
-        self.scene.draw_scene(self.game_camera_component)
+        self.scene.draw_scene(self.game_camera_component, False)
 
         # restore framebuffer and viewport
         gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, 0)

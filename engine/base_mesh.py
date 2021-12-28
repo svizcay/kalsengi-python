@@ -358,6 +358,50 @@ class Triangle(BaseMesh):
         # when calling methods within the class, we don't need to pass self.
         super().__init__(vertices, uvs=uvs, normals=normals, colors=colors, indices=indices)
 
+class GridMesh(BaseMesh):
+
+    def __init__(self, size:int = 200):
+
+        if size % 2 == 0:
+            size = size + 1
+
+        half_size = size // 2
+        pos_z = -half_size
+        pos_x = -half_size
+
+        default_vertices = []
+
+        # forward lines
+        for i in range(size):
+            # back vertex of forward line
+            default_vertices.append(pos_x)
+            default_vertices.append(0)
+            default_vertices.append(-half_size)
+
+            # front vertex of forward line
+            default_vertices.append(pos_x)
+            default_vertices.append(0)
+            default_vertices.append(half_size)
+
+            pos_x = pos_x + 1
+
+        # horizontal lines
+        for i in range(size):
+            # left vertex of horizontal line
+            default_vertices.append(-half_size)
+            default_vertices.append(0)
+            default_vertices.append(pos_z)
+
+            # right vertex of horizontal line
+            default_vertices.append(half_size)
+            default_vertices.append(0)
+            default_vertices.append(pos_z)
+
+            pos_z = pos_z + 1
+
+        super().__init__(default_vertices, drawing_mode=gl.GL_LINES)
+
+
 class Line(BaseMesh):
 
     def __init__(self, attribs = VertexAttrib.ALL,*,

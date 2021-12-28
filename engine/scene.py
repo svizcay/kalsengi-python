@@ -1,5 +1,6 @@
 import imgui
 import pyrr
+import OpenGL.GL as gl
 
 from .gui import GameObjectGUI
 # it seeems we don't need to import a module/class name if we are not going to instantiate an object
@@ -7,6 +8,10 @@ from .gui import GameObjectGUI
 from .components import MeshRenderer
 from .components import Camera
 from .gizmo import Gizmo, CameraGizmo
+
+from .material import Material
+from .shader import Shader
+from .base_mesh import GridMesh
 
 class Scene:
 
@@ -21,6 +26,20 @@ class Scene:
 
         # for debugging. it should not be a list
         # self.selected_flags = []
+
+        # testing grid
+        grid_mesh = GridMesh()
+        shader = Shader.from_file(
+            "engine/shaders/vertex/simple_mvp.glsl",
+            "engine/shaders/fragment/flat_color_uniform_far_clipped.glsl"
+        )
+        material = Material(shader)
+        self.grid_renderer = MeshRenderer(
+            None,
+            grid_mesh,
+            material
+        )
+        self.grid_clip_distance = 75.0
 
     def add_game_object(self, game_object):
         self.game_objects.append(game_object)
@@ -40,10 +59,37 @@ class Scene:
         # for debugging
         # self.selected_flags.append(False)
 
-    def draw_scene(self, camera):
+    def draw_scene(self, camera, is_editor_camera = True):
         """ this method will call draw on all game objects """
         # in general: for ech game object, activate its shader and draw the object.
         # but we should sort game objects by material first
+
+
+        # testing grid
+        if is_editor_camera:
+
+            imgui.begin("grid")
+            changed, grid_clip_distance = imgui.slider_float("grid clip", self.grid_clip_distance, 0.0001, 100)
+            if changed:
+                self.grid_clip_distance = grid_clip_distance
+            imgui.end()
+
+            gl.glLineWidth(1)
+            self.grid_renderer.shader.use()
+            # the grid needs to move with the camera in the xy plane
+            # actually not exactly like that.
+            # it needs to move but at integer intervals
+            camera_pos = camera.transform.position
+            camera_pos.x = int(camera_pos.x)
+            camera_pos.y = 0
+            camera_pos.z = int(camera_pos.z)
+            mvp = pyrr.matrix44.multiply(
+                pyrr.matrix44.multiply(pyrr.matrix44.create_from_translation(camera_pos), camera.transform.view_mat),
+                camera.projection)
+            self.grid_renderer.set_uniform("mvp", mvp)
+            self.grid_renderer.set_uniform("clip_distance", self.grid_clip_distance)
+            self.grid_renderer.render()
+            gl.glLineWidth(5)
 
         for game_obj in self.game_objects:
             for component in game_obj.components:
