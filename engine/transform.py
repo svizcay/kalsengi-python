@@ -3,6 +3,11 @@ import math
 import numpy as np
 import sys, traceback
 
+# reading about the constraints of quaternions,
+# in the unity website they are saying quaternions can not represent a rotation beyond 180 degrees.
+# why?
+# https://docs.unity3d.com/Manual/QuaternionAndEulerRotationsInUnity.html
+
 class Transform:
 
     # clients don't set matrices
@@ -549,6 +554,11 @@ class Transform:
         # if (self._scale_dirty):
         #     self._update_scale_matrix()
         inverse_translation = pyrr.matrix44.create_from_translation(-self._local_position)
+        # don't use inverse quaternions.
+        # q and -q encode the same rotation
+        # ref:
+        # https://towardsdatascience.com/better-rotation-representations-for-accurate-pose-estimation-e890a7e1317f
+        # check why this is the case
         inverse_quaternion = [
             -self._local_rotation[0],
             -self._local_rotation[1],

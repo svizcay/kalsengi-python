@@ -3,20 +3,18 @@ import OpenGL.GL as gl
 
 from .components import MeshRenderer
 from .base_mesh import GizmoMesh, CameraGizmoMesh
-from .shader import Shader
+from . import shader_manager
 from .material import Material
 from .transform import Transform
+
+# refactor these gizmo classes
 
 class Gizmo:
 
     def __init__(self):
         # instantiate a gizmo shader
         gizmo_mesh = GizmoMesh()
-        shader = Shader.from_file(
-            "engine/shaders/vertex/simple_mvp_color.glsl",
-            "engine/shaders/fragment/vertex_color.glsl"
-        )
-        material = Material(shader)
+        material = Material(shader_manager.get_from_name("mvp_vertex_color"))
         self.gizmo_renderer = MeshRenderer(
             None,
             gizmo_mesh,
@@ -45,11 +43,7 @@ class CameraGizmo:
     def __init__(self):
         # instantiate a gizmo shader
         mesh = CameraGizmoMesh()
-        shader = Shader.from_file(
-            "engine/shaders/vertex/simple_mvp_color.glsl",
-            "engine/shaders/fragment/flat_color_uniform.glsl"
-        )
-        material = Material(shader)
+        material = Material(shader_manager.get_from_name("mvp_flat_color_uniform"))
         self.renderer = MeshRenderer(
             None,
             mesh,

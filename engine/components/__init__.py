@@ -20,5 +20,7 @@
 from .component import Component
 from .camera import Camera
 from .mesh_renderer import MeshRenderer
+from .light import Light, LightType
+from .rotate import Rotate
 
 

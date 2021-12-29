@@ -13,7 +13,12 @@ from .component import Component
 # they can only 'add' them to gameObjects, i.e. the component's transform
 # it's take from the gameObject.
 # the component needs to belong to a gameObject as well
-from engine.gui import CameraGUI
+
+# maybe this is not the right way to import the module
+# this is considered an absolute import and python will try to do it right away
+# given that we are passing a package (engine.gui) python will import everything from the init file
+# from engine.gui import CameraGUI
+import engine.gui.camera_gui as camera_gui
 
 class Camera(Component):
 
@@ -46,7 +51,8 @@ class Camera(Component):
 
         # whenever we have a class that inherits from Component
         # and we DO have a valid component gui, then set it
-        self.gui = CameraGUI(self)
+        # self.gui = CameraGUI(self)
+        self.gui = camera_gui.CameraGUI(self)
         self.name = "camera"
 
         # we dont have direct access to the internal transform

@@ -1,3 +1,5 @@
+import inspect
+
 import imgui
 import pyrr
 import OpenGL.GL as gl
@@ -7,17 +9,23 @@ from .gui import GameObjectGUI
 # but in this case, when referencing the class type, we need it
 from .components import MeshRenderer
 from .components import Camera
+from .components import Light
 from .gizmo import Gizmo, CameraGizmo
 
 from .material import Material
-from .shader import Shader
 from .base_mesh import GridMesh
+from . import shader_manager
+
+
+# order of events:
+# update gets called before rendering
 
 class Scene:
 
     def __init__(self):
         self.game_objects = []
         self.cameras = []
+        self.light_sources = []
         self.selected = None
         self.expanded = []
         self.guis = {}
@@ -29,11 +37,7 @@ class Scene:
 
         # testing grid
         grid_mesh = GridMesh()
-        shader = Shader.from_file(
-            "engine/shaders/vertex/simple_mvp.glsl",
-            "engine/shaders/fragment/flat_color_uniform_far_clipped.glsl"
-        )
-        material = Material(shader)
+        material = Material(shader_manager.get_from_name("mvp_flat_color_uniform_far_clipped"))
         self.grid_renderer = MeshRenderer(
             None,
             grid_mesh,
@@ -45,9 +49,15 @@ class Scene:
         self.game_objects.append(game_object)
 
         # check if game object was a camera
+        # NOTE: this has the issue that it doesn't take into account
+        # the fact that we can add a camera componet later!!
+        # the same problem is going to happen for any special game object as lights
         camera = game_object.get_component(Camera)
+        light_source = game_object.get_component(Light)
         if camera is not None:
             self.cameras.append(camera)
+        if light_source is not None:
+            self.light_sources.append(light_source)
 
         gui = GameObjectGUI(game_object)
         self.guis[game_object.id] = gui
@@ -58,6 +68,20 @@ class Scene:
 
         # for debugging
         # self.selected_flags.append(False)
+
+    def update(self):
+        # update components if they have an update method
+        for game_obj in self.game_objects:
+            for component in game_obj.components:
+                # inspect(object[,predicate]) returns a list of tuples name value
+                # of all members of the object
+                # print("component {} members:".format(component))
+                if component.enabled:
+                    for name, value in inspect.getmembers(component):
+                        if name == "update":
+                            component.update()
+                        # print(name)
+
 
     def draw_scene(self, camera, is_editor_camera = True):
         """ this method will call draw on all game objects """
@@ -107,8 +131,18 @@ class Scene:
                     # interface to set the uniform and forward it to the 'material'
                     # double check what's the order here
                     component.set_uniform("mvp", mvp)
+                    component.set_uniform("model", game_obj.transform.model_mat)
                     # mesh_renderer.set_uniform("time", currentTime)
                     # mesh_renderer.set_uniform("light pos", light_pos)
+
+                    # apart from setting the mvp
+                    # we need to send light data
+                    if len(self.light_sources) > 0:
+                        # when passing uniforms, we need to treat the data as simple as possible
+                        # i.e, rather than a pyrr.vector or python array, expand them
+                        # to a comma separated invidual floats
+                        component.set_uniform("light_pos", *self.light_sources[0].position)
+                        component.set_uniform("light_color", *self.light_sources[0].color)
 
                     # if the material uses textures,
                     # we need to make sure they are bound at the right texture units.

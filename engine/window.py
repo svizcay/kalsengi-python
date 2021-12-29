@@ -25,12 +25,11 @@ import cv2
 # for the tearing down:
 # before terminating glfw, call the shutdown of the renderer (the instance of the GlfwRenderer)
 
-from .components import MeshRenderer, Camera
+from .components import MeshRenderer, Camera, Light, LightType, Rotate
 # from .mesh_renderer import MeshRenderer
 # from .camera import Camera
 
 from .base_mesh import BaseMesh, Triangle, Quad, Cube, Line, GizmoMesh
-from .shader import Shader
 from .material import Material
 from .texture import Texture
 from .framebuffer import Framebuffer
@@ -41,9 +40,14 @@ from .game_object import GameObject
 from .fps_counter import FPSCounter
 from .scene import Scene
 
+from . import shader_manager # no need to rename it to the same
+# from . import shader_manager as shader_manager
+
 from .gui import TransformGUI
 from .gui import CameraGUI
 from .gui import MaterialGUI
+
+import engine.time
 
 # we are not getting this callback executed anymore
 # since we started using imgui
@@ -144,6 +148,9 @@ class Window:
 
         self.use_imgui = True
 
+        # initialize singletone modules
+        shader_manager.init()
+
         # SCENE BEGIN
         # scene = collection of gameObjects
         self.scene = Scene()
@@ -155,6 +162,8 @@ class Window:
 
         blender_quad = GameObject("blender quad")
         game_camera = GameObject("game camera")
+        light = GameObject("light")
+        light.transform.local_euler_angles = pyrr.Vector3([-60, 5, 0])
         game_camera.transform.local_position = pyrr.Vector3([0, 1, 2.5])
         game_camera.transform.local_euler_angles = pyrr.Vector3([-20, 0, 0])
 
@@ -178,72 +187,6 @@ class Window:
         blender_quad.transform.local_scale = pyrr.Vector3([0.1, 0.1, 0.1])
         # gizmo = Gizmo()
 
-        # load shaders
-        # make a shader manager to show what's avaiable -> related to materials
-        # what would be the difference between a shader manager and a material manager?
-        # what i want:
-        # - compile many combinations of shaders (no need to be fully exhaustive...just a way to do it once)
-        # - list what are the available shaders
-        # for now, let's load some mvp shaders here
-        # list of mvp shaders i have available:
-        # - vertex just sending position (simple_mvp.glsl)
-        # - vertex forwarding vertex color (simple_mvp_color.glsl)
-        # - vertex forwarding vertex uv (simple_mpv_uv.glsl)
-        # what happens if a vertex forwards some data but fragment doesn't take it in??
-        # does the compilation fail?
-        # - fragment flat color defined in the shader (flat_color.glsl)
-        # - fragment flat color defined by uniform (flat_color_uniform.glsl)
-        # - fragment fixed red channel chaning over time - time as uniform (flat_time_color.glsl)
-        # - fragment that outputs vertex color (vertex_color.glsl)
-        # - fragment that takes uv and mixes two textures (mix_textures.glsl)
-        # - fragment that takes uv and output texture color (txture_color.glsl)
-        # - fragment that takes uv and output texture color multiplied by uniform color (texture_uniform_colog.glsl)
-        # - fragment that takes uv and output texture color multiplied by vertex color (texture_vertex_color.glsl)
-
-        flat_color_uniform_shader = Shader.from_file(
-            "engine/shaders/vertex/simple_mvp.glsl",
-            "engine/shaders/fragment/flat_color_uniform.glsl"
-        )
-
-        # flat_color_shader = Shader.from_file(
-        #     "engine/shaders/vertex/simple_mvp.glsl",
-        #     "engine/shaders/fragment/flat_color.glsl"
-        # )
-
-        texture_shader = Shader.from_file(
-            "engine/shaders/vertex/simple_mvp_uv.glsl",
-            "engine/shaders/fragment/texture_uniform_color.glsl"
-        )
-
-        uv_shader = Shader.from_file(
-            "engine/shaders/vertex/simple_mvp_uv.glsl",
-            "engine/shaders/fragment/uv_color.glsl"
-        )
-
-        normal_shader = Shader.from_file(
-            "engine/shaders/vertex/simple_mvp_normal.glsl",
-            "engine/shaders/fragment/normal_color.glsl"
-        )
-
-        # gizmo_shader = Shader.from_file(
-        #     "engine/shaders/vertex/simple_mvp_color.glsl",
-        #     "engine/shaders/fragment/vertex_color.glsl"
-        # )
-
-        # i want to test every triangle every shader?
-        # shader = Shader(vertex_src, frag_src)
-        # shader = Shader("engine/shaders/vertex/simple_vertex.glsl", "engine/shaders/fragment/flat_color.glsl")
-        # shader = Shader("engine/shaders/vertex/simple_vertex.glsl", "engine/shaders/fragment/flat_color_uniform.glsl")
-        # shader = Shader("engine/shaders/vertex/simple_vertex_color.glsl", "engine/shaders/fragment/vertex_color.glsl")
-        # shader = Shader("engine/shaders/vertex/simple_vertex_uv.glsl", "engine/shaders/fragment/texture_color.glsl")
-        # shader = Shader("engine/shaders/vertex/simple_vertex_uv.glsl", "engine/shaders/fragment/mix_textures.glsl")
-        # shader = Shader("engine/shaders/vertex/simple_vertex_uv_color.glsl", "engine/shaders/fragment/texture_vertex_color.glsl")
-
-        # mvp shaders
-        # shader = Shader("engine/shaders/vertex/simple_mvp.glsl", "engine/shaders/fragment/flat_color.glsl")
-        # shader = Shader("engine/shaders/vertex/simple_mvp_uv.glsl", "engine/shaders/fragment/texture_color.glsl")
-        # self.shader = Shader("engine/shaders/vertex/simple_mvp.glsl", "engine/shaders/fragment/flat_time_color.glsl")
-
         # add components to game objects
 
         # # add renderers
@@ -258,13 +201,22 @@ class Window:
         #     gizmo_shader
         # )
 
+
+        # components such as cameras and lights need to be added BEFORE adding
+        # the game objects into the scene
+
         self.editor_scene_size = (890, 500)
         self.game_camera_component = game_camera.add_component(Camera, self.editor_scene_size[0]/self.editor_scene_size[1])
+        blender_quad.add_component(Rotate)
 
-        # flat_color_material = Material(flat_color_uniform_shader)
-        flat_color_material = Material(texture_shader)
-        uv_material = Material(uv_shader)
-        normal_material = Material(normal_shader)
+        light.add_component(Light, LightType.DIRECTIONAL)
+
+        # materials take a shader as input
+        # uv_material = Material(shader_manager.get_from_name("mvp_uv_color"))
+        # normal_material = Material(shader_manager.get_from_name("mvp_normal_color"))
+        normal_material = Material(shader_manager.get_from_name("mvp_light_direction_color"))
+        # normal_material = Material(shader_manager.get_from_name("world_space_color"))
+        # normal_material = Material(shader_manager.get_from_name("world_space_normal"))
 
         # material_gui = MaterialGUI(uv_material)
         material_gui = MaterialGUI(normal_material)
@@ -277,6 +229,7 @@ class Window:
         # self.scene.add_game_object(cube_go)
         self.scene.add_game_object(blender_quad)
         self.scene.add_game_object(game_camera)
+        self.scene.add_game_object(light)
 
         # triangle = Triangle()
         # triangle = Triangle(VertexAttrib.POS)
@@ -299,10 +252,10 @@ class Window:
 
         # texture_renderer = cube_go.get_component(MeshRenderer)
         # texture_renderer.shader.use()
-        uv_shader.use()
+        # uv_shader.use()
         self.texture1.bind()
         # texture_renderer.set_uniform("texture0", 0)
-        uv_material.set_uniform("texture0", 0)
+        # uv_material.set_uniform("texture0", 0)
         # self.texture2.bind(1)
         # texture_renderer.set_uniform("texture1", 1)
 
@@ -600,9 +553,13 @@ class Window:
 
             self.current_time = glfw.get_time()
             self.delta_time = self.current_time - self.previous_time
+            engine.time.time = glfw.get_time()
+            engine.time.delta_time = self.current_time - self.previous_time
 
             self.fps_counter.update(self.current_time, self.delta_time)
 
+            ####################################################################
+            # INPUT EVENTS
             self.process_input()
             # additional checks for reloading shaders
             # if self.plane_object["shader"].dirty:
@@ -610,7 +567,13 @@ class Window:
 
             if self.use_imgui:
                 self.impl.process_inputs()
+            ####################################################################
 
+            ####################################################################
+            # GAME LOGIC
+            self.scene.update()
+
+            ####################################################################
             gl.glViewport(0, 0,self.framebuffer_width, self.framebuffer_height)
             gl.glClearColor(*self.clear_color, 1)# gray
             gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
