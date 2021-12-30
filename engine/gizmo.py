@@ -34,7 +34,7 @@ class Gizmo:
         mvp = pyrr.matrix44.multiply(
             pyrr.matrix44.multiply(model_mat, camera.transform.view_mat),
             camera.projection)
-        self.gizmo_renderer.set_uniform("mvp", mvp)
+        self.gizmo_renderer.material.set_uniform("mvp", mvp)
         gl.glClear(gl.GL_DEPTH_BUFFER_BIT)
         self.gizmo_renderer.render()
 
@@ -63,6 +63,6 @@ class CameraGizmo:
         mvp = pyrr.matrix44.multiply(
             pyrr.matrix44.multiply(model_mat, camera.transform.view_mat),
             camera.projection)
-        self.renderer.set_uniform("mvp", mvp)
+        self.renderer.material.set_uniform("mvp", mvp)
         gl.glClear(gl.GL_DEPTH_BUFFER_BIT)
         self.renderer.render()

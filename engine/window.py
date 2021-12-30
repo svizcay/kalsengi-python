@@ -30,7 +30,6 @@ from .components import MeshRenderer, Camera, Light, LightType, Rotate
 # from .camera import Camera
 
 from .base_mesh import BaseMesh, Triangle, Quad, Cube, Line, GizmoMesh
-from .material import Material
 from .texture import Texture
 from .framebuffer import Framebuffer
 from . import VertexAttrib # this was defined in __init__.py
@@ -41,6 +40,7 @@ from .fps_counter import FPSCounter
 from .scene import Scene
 
 from . import shader_manager # no need to rename it to the same
+from . import material_manager
 # from . import shader_manager as shader_manager
 
 from .gui import TransformGUI
@@ -150,6 +150,7 @@ class Window:
 
         # initialize singletone modules
         shader_manager.init()
+        material_manager.init()
 
         # SCENE BEGIN
         # scene = collection of gameObjects
@@ -212,18 +213,9 @@ class Window:
 
         light.add_component(Light, LightType.DIRECTIONAL)
 
-        # materials take a shader as input
-        # uv_material = Material(shader_manager.get_from_name("mvp_uv_color"))
-        # normal_material = Material(shader_manager.get_from_name("mvp_normal_color"))
-        # normal_material = Material(shader_manager.get_from_name("mvp_light_direction_color"))
-        normal_material = Material(shader_manager.get_from_name("mvp_light_specular"))
-        # normal_material = Material(shader_manager.get_from_name("world_space_color"))
-        # normal_material = Material(shader_manager.get_from_name("world_space_normal"))
+        default_material = material_manager.get_from_name("light_specular")
 
-        # material_gui = MaterialGUI(uv_material)
-        material_gui = MaterialGUI(normal_material)
-
-        blender_quad.add_component(MeshRenderer, blender_quad_mesh, normal_material)
+        blender_quad.add_component(MeshRenderer, blender_quad_mesh, default_material)
 
         # self.scene.add_game_object(dragon_go)
         # self.scene.add_game_object(monkey_go)

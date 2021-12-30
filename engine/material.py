@@ -2,7 +2,7 @@ import OpenGL.GL as gl
 from .gl_uniform import set_uniform, gl_uniform_type_to_f
 
 # are we going to deal with VAOs at this level?
-# i.e, are we going to set uniform values?
+# i.e, are we going to set uniform values? -> uniform values have nothing to do with VAOs!
 # if that's so, what's the difference with the mesh renderer?
 # the mesh renderer should be the object that groups mesh and material together
 # a material can not be used to draw a mesh (the actual call to glDraw)
@@ -64,6 +64,11 @@ class Material:
             else:
                 self.uniforms[name] = uniform
 
+            # report the cases where we have an incomplete implementation
+            # of the right function to use to load uniform values
+            if (not type_ in gl_uniform_type_to_f):
+                print("type {} has not been added yet to gl_uniform_type_to_f".format(type_))
+
         nr_attribs = gl.glGetProgramiv(shader.program, gl.GL_ACTIVE_ATTRIBUTES)
         for i in range(nr_attribs):
             bufSize = gl.glGetProgramiv(shader.program, gl.GL_ACTIVE_ATTRIBUTE_MAX_LENGTH)
@@ -89,6 +94,9 @@ class Material:
             attrib["size"] = size
             self.vertex_attribs[name] = attrib
             # print("attrib {} size={} type={}".format(name, size, type_))
+
+    def use(self):
+        self.shader.use()
 
     def set_uniform(self, uniform_name, *uniform_values):
         if (uniform_name in self.uniforms):

@@ -12,9 +12,10 @@ from .components import Camera
 from .components import Light
 from .gizmo import Gizmo, CameraGizmo
 
-from .material import Material
 from .base_mesh import GridMesh
+
 from . import shader_manager
+from . import material_manager
 
 
 # order of events:
@@ -37,11 +38,11 @@ class Scene:
 
         # testing grid
         grid_mesh = GridMesh()
-        material = Material(shader_manager.get_from_name("mvp_flat_color_uniform_far_clipped"))
+        grid_material = material_manager.get_from_name("flat_color_uniform_far_clipped")
         self.grid_renderer = MeshRenderer(
             None,
             grid_mesh,
-            material
+            grid_material
         )
         self.grid_clip_distance = 75.0
 
@@ -110,51 +111,110 @@ class Scene:
             mvp = pyrr.matrix44.multiply(
                 pyrr.matrix44.multiply(pyrr.matrix44.create_from_translation(camera_pos), camera.transform.view_mat),
                 camera.projection)
-            self.grid_renderer.set_uniform("mvp", mvp)
-            self.grid_renderer.set_uniform("clip_distance", self.grid_clip_distance)
+            # we should not use the renderer to set uniforms!!
+            self.grid_renderer.material.set_uniform("mvp", mvp)
+            self.grid_renderer.material.set_uniform("clip_distance", self.grid_clip_distance)
             self.grid_renderer.render()
             gl.glLineWidth(5)
 
+        # rather than interating directly through the list of game objects,
+        # we need to find what materials they are using and render them by grouping them
+        # by materials
+
+        game_objects_per_material = {}
         for game_obj in self.game_objects:
             for component in game_obj.components:
                 if isinstance(component, MeshRenderer):
-                    component.shader.use()
-                    # this should be avoided and done only when there are changes
-                    # to the matrices.
-                    # the same with setting the uniform. we should set them only if they are dirty
-                    mvp = pyrr.matrix44.multiply(
-                        pyrr.matrix44.multiply(
-                            game_obj.transform.model_mat,
-                            camera.transform.view_mat),
-                        camera.projection)
-                    # it doesn't seem right that the mesh renderer has the
-                    # interface to set the uniform and forward it to the 'material'
-                    # double check what's the order here
-                    component.set_uniform("mvp", mvp)
-                    component.set_uniform("model", game_obj.transform.model_mat)
-                    component.set_uniform("camera_pos", *camera.transform.position)
-                    # mesh_renderer.set_uniform("time", currentTime)
-                    # mesh_renderer.set_uniform("light pos", light_pos)
+                    material = component.material
+                    if material not in game_objects_per_material:
+                        # create the list of game objects for this material
+                        game_objects_per_material[material] = []
+                    game_objects_per_material[material].append(game_obj)
 
-                    # apart from setting the mvp
-                    # we need to send light data
-                    if len(self.light_sources) > 0:
-                        # when passing uniforms, we need to treat the data as simple as possible
-                        # i.e, rather than a pyrr.vector or python array, expand them
-                        # to a comma separated invidual floats
-                        component.set_uniform("light_pos", *self.light_sources[0].position)
-                        component.set_uniform("light_color", *self.light_sources[0].color)
+        for material in game_objects_per_material:
+            material.use()
+            for game_obj in game_objects_per_material[material]:
+                for component in game_obj.components:
+                    if isinstance(component, MeshRenderer):
+                        mvp = pyrr.matrix44.multiply(
+                            pyrr.matrix44.multiply(
+                                game_obj.transform.model_mat,
+                                camera.transform.view_mat),
+                            camera.projection)
+                        material.set_uniform("mvp", mvp)
+                        material.set_uniform("model", game_obj.transform.model_mat)
+                        material.set_uniform("camera_pos", *camera.transform.position)
 
-                    # if the material uses textures,
-                    # we need to make sure they are bound at the right texture units.
-                    # the material knows already which texture unit to use (that was set
-                    # initially using the uniform). but we need to ensure the right texture
-                    # is there.
-                    # self.texture1.bind()
-                    # self.texture2.bind(1)
-                    # therefore, material needs to know the textures is going to use
+                        # if the material uses textures,
+                        # we need to make sure they are bound at the right texture units.
+                        # the material knows already which texture unit to use (that was set
+                        # initially using the uniform). but we need to ensure the right texture
+                        # is there.
+                        # self.texture1.bind()
+                        # self.texture2.bind(1)
+                        # therefore, material needs to know the textures is going to use
 
-                    component.render()
+                        if len(self.light_sources) > 0:
+                            # when passing uniforms, we need to treat the data as simple as possible
+                            # i.e, rather than a pyrr.vector or python array, expand them
+                            # to a comma separated invidual floats
+                            material.set_uniform("light_pos", *self.light_sources[0].position)
+                            material.set_uniform("light_color", *self.light_sources[0].color)
+
+                        # now we can ask the meshRenderer to draw the geometry
+                        component.render()
+
+        # for game_obj in self.game_objects:
+        #     for component in game_obj.components:
+        #         if isinstance(component, MeshRenderer):
+        #             # we should not use the MeshRenderer to activate a material program.
+        #             # we should activate the material outside this loop and render
+        #             # all objects that have the same material!
+        #             # we are bypassing the material here and the idea, is that
+        #             # we might want to change the material attached to the MeshRenderer in runtime
+        #             # ALSO, we should not set material's uniforms using the mesh renderer
+        #             component.shader.use()
+        #             # this should be avoided and done only when there are changes
+        #             # to the matrices.
+        #             # the same with setting the uniform. we should set them only if they are dirty
+        #             mvp = pyrr.matrix44.multiply(
+        #                 pyrr.matrix44.multiply(
+        #                     game_obj.transform.model_mat,
+        #                     camera.transform.view_mat),
+        #                 camera.projection)
+        #             # it doesn't seem right that the mesh renderer has the
+        #             # interface to set the uniform and forward it to the 'material'
+        #             # double check what's the order here
+        #             # DO NOT set uniforms using the MeshRenderer!
+        #             # we should set uniforms using the material class
+        #             component.set_uniform("mvp", mvp)
+        #             component.set_uniform("model", game_obj.transform.model_mat)
+        #             component.set_uniform("camera_pos", *camera.transform.position)
+        #             # mesh_renderer.set_uniform("time", currentTime)
+        #             # mesh_renderer.set_uniform("light pos", light_pos)
+
+        #             # apart from setting the mvp
+        #             # we need to send light data
+        #             if len(self.light_sources) > 0:
+        #                 # when passing uniforms, we need to treat the data as simple as possible
+        #                 # i.e, rather than a pyrr.vector or python array, expand them
+        #                 # to a comma separated invidual floats
+        #                 component.set_uniform("light_pos", *self.light_sources[0].position)
+        #                 component.set_uniform("light_color", *self.light_sources[0].color)
+
+        #             # if the material uses textures,
+        #             # we need to make sure they are bound at the right texture units.
+        #             # the material knows already which texture unit to use (that was set
+        #             # initially using the uniform). but we need to ensure the right texture
+        #             # is there.
+        #             # self.texture1.bind()
+        #             # self.texture2.bind(1)
+        #             # therefore, material needs to know the textures is going to use
+
+        #             # mesh renderer is calling gl.DrawArrays!
+        #             # we need to make it call the material instead
+        #             # and the material then call the mesh.draw
+        #             component.render()
 
     def draw_overlay(self, camera):
         """" this method will draw things that need to be on top of everything like gizmos """

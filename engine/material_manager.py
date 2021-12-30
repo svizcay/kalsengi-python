@@ -10,12 +10,19 @@
 
 # similarly to shader manager, we can refer to materials
 # either by name or by id
+# for now material name needs to be unique.
+# later on we are going to use uuid for assets
+# we can assume that uuid is going to be implemented
+# but for now is just going to be the name string
 
 # the engine needs to declare at the beginning what are
 # the materials that are going to be used
 # and based on that, this material manager is going to
 # to ask the shader manager to load those shaders
 from .material import Material
+from . import shader_manager
+
+from .gui import MaterialGUI
 
 # internal attributes
 _nr_materials = 0
@@ -48,16 +55,82 @@ _materials = {} # key is the numeric id
 # unity has a Shader.Find method that returns a shader
 # and then that shader is pass to the material constructor
 
-def init(list_of_names):
-    pass
-    # _load_shaders()
+def init():
+    _create_materials()
 
+def get_from_name(name:str):
+    global _name_to_id
+    if name in _name_to_id:
+        uuid = _name_to_id[name]
+        return _materials[uuid]
+    else:
+        raise ArgumentError("material name {} not found".format(name))
 
+def get_from_id(uuid:int):
+    global _materials
+    if uuid in _materials:
+        return _materials[uuid]
+    else:
+        raise ArgumentError("material id {} not found".format(uuid))
 
+# we need a method to list all available materials in a consistent order
+# i.e, by calling it twice, the order is always the same.
+# i'm not sure dictionaries in python preserve the order
+def get_materials_ids():
+    result = []
+    global _id_to_name
+    for uuid, name in _id_to_name.items():
+        result.append((uuid, name))
 
+    result.sort(key=lambda material: material[0])   # sort by uuid
+
+    return result
+
+# this method is most likely to get called when querying available materials
+# we need ideally to return also the 'index' of the material in the returned
+# array which was sorted by uuid
+def get_material_id_by_ref(ref_material):
+    global _materials
+    for uuid, material in _materials.items():
+        if material == ref_material:
+            return uuid
+    return None
 
 
 ################################################################################
 # internal methods
 ################################################################################
 
+def _create_materials():
+    _create_material("flat_color", "mvp_flat_color")
+    _create_material("flat_color_uniform", "mvp_flat_color_uniform")
+    _create_material("time_color", "mvp_time_color")
+    _create_material("texture_uniform_color", "mvp_texture_uniform_color")
+    _create_material("texture_vertex_color", "mvp_texture_vertex_color")
+    _create_material("flat_color_uniform_far_clipped", "mvp_flat_color_uniform_far_clipped")
+    _create_material("texture_color", "mvp_texture_color")
+    _create_material("mix_textures_color", "mvp_mix_textures_color")
+    _create_material("uv_color", "mvp_uv_color")
+    _create_material("normal_color", "mvp_normal_color")
+    _create_material("vertex_color", "mvp_vertex_color")
+    _create_material("world_space_color", "world_space_color")
+    _create_material("world_space_normal", "world_space_normal")
+    _create_material("light_direction_color", "mvp_light_direction_color")
+    _create_material("light_specular", "mvp_light_specular")
+
+def _create_material(name, shader_name):
+    global _name_to_id
+    global _id_to_name
+    global _materials
+    global _nr_materials
+    uuid = _get_uuid()
+    _id_to_name[uuid] = name
+    _name_to_id[name] = uuid
+    material = Material(shader_manager.get_from_name(shader_name))
+    material_gui = MaterialGUI(material)
+    _materials[uuid] = material
+    _nr_materials = _nr_materials + 1
+
+# for now, returning just the id of material instance
+def _get_uuid():
+    return _nr_materials

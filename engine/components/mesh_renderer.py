@@ -17,6 +17,8 @@ class MeshRenderer(Component):
     def __init__(self, game_object, mesh, material):
         super().__init__(game_object)
 
+        # we are not doing anything with the material!
+        # we need to use it for rendering
         self.material = material
         self.mesh = mesh
         self.shader = material.shader
@@ -25,41 +27,6 @@ class MeshRenderer(Component):
         # and we DO have a valid component gui, then set it
         self.gui = MeshRendererGUI(self)
         self.name = "mesh renderer"
-
-        self.uniforms = {}
-
-        # we could check what are the available uniforms and attribs
-        print("list of available uniforms in shader {}".format(self.shader.program))
-        nr_uniforms = gl.glGetProgramiv(self.shader.program, gl.GL_ACTIVE_UNIFORMS)
-        for i in range(nr_uniforms):
-            # name comes in a bytestring -> needs ascii decoding
-            name, size, type = gl.glGetActiveUniform(self.shader.program, i)
-            name = name.decode("ascii")
-            # don't we need to bind the program fist before
-            # querying for locations?
-            # a)no, we don't need the program to be bind.
-            # that's why we pass the program to glGetUniformLocation.
-            # for glUniform is different. They don't take the program as parameter
-            # and the program needs to be bound
-            loc = gl.glGetUniformLocation(self.shader.program, name);
-            uniform = {}
-            uniform["name"] = name
-            uniform["loc"] = loc
-            uniform["type"] = type
-            uniform["size"] = size
-            self.uniforms[name] = uniform
-            if (loc < 0):
-                print("uniform {} was optimized out".format(name))
-
-            print("uniform {} size={} type={} loc={}".format(name, size, type, loc))
-
-            if (not type in gl_uniform_type_to_f):
-                print("type {} has not been added yet to gl_uniform_type_to_f".format(type))
-
-            # print("type for sampler2D GL_SAMPLER_2D = {}".format(gl.GL_SAMPLER_2D))
-            # print("type for vec3 GL_FLOAT_VEC3 = {}".format(gl.GL_FLOAT_VEC3))
-            # print("type for mat4 GL_FLOAT_MAT4 = {}".format(gl.GL_FLOAT_MAT4))
-            # print("type for float GL_FLOAT = {}".format(gl.GL_FLOAT))
 
         self.vao = gl.glGenVertexArrays(1)
         # print("binding vao")
@@ -75,8 +42,15 @@ class MeshRenderer(Component):
         # of it
         mesh.bind_buffers()
 
+        # let's check how well matches the mesh data
+        # with the material/shader that we are going to use
+
         # let's check what's available in the shader
         # do we need the glUseProgram() when calling glGetAttribLocation?
+
+        # we are not just 'checking' how well they match
+        # but we are also connecting mesh data to vertex attributes in vertex shader.
+        # we actually need to perform this every time we replace the material
         for attrib in vertex_attrib_loc:
             loc = gl.glGetAttribLocation(self.shader.program, attrib)
             if (loc >= 0):
@@ -110,15 +84,14 @@ class MeshRenderer(Component):
         gl.glBindVertexArray(0)
 
     def render(self):
+        # there is some sort of double 'dependency' here.
+        # we are supposed to render ALL game objects that share the same material
+        # and this MeshRenderer.render should only activate the VAO
+        # and ask the model to call gl.DrawElements
+        # but we need also to make sure the shader program is enabled
         gl.glBindVertexArray(self.vao)
         self.mesh.draw()
         gl.glBindVertexArray(0)
-
-    # def glUniform(uniform_type, loc, value):
-    #     switcher =
-    #     {
-    #         gl.GL_SAMPLER : gl
-    #     }
 
     # we need to support a variable number of "uniform_value".
     def set_uniform(self, uniform_name, *uniform_values):
