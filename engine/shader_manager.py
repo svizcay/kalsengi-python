@@ -233,6 +233,13 @@ def _load_shaders():
         "engine/shaders/fragment/light_direction.glsl"
     )
 
+    # testing only specular contribution
+    _load_shader(
+        "mvp_light_specular",
+        "engine/shaders/vertex/mvp_light_specular.glsl",
+        "engine/shaders/fragment/light_specular.glsl"
+    )
+
     # watchdog stuff
     # afet loading the shaders, we initialize the watchdog event handler
     # do i need event_handler to be in the global scope?

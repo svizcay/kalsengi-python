@@ -132,6 +132,7 @@ class Scene:
                     # double check what's the order here
                     component.set_uniform("mvp", mvp)
                     component.set_uniform("model", game_obj.transform.model_mat)
+                    component.set_uniform("camera_pos", *camera.transform.position)
                     # mesh_renderer.set_uniform("time", currentTime)
                     # mesh_renderer.set_uniform("light pos", light_pos)
 

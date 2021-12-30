@@ -215,7 +215,8 @@ class Window:
         # materials take a shader as input
         # uv_material = Material(shader_manager.get_from_name("mvp_uv_color"))
         # normal_material = Material(shader_manager.get_from_name("mvp_normal_color"))
-        normal_material = Material(shader_manager.get_from_name("mvp_light_direction_color"))
+        # normal_material = Material(shader_manager.get_from_name("mvp_light_direction_color"))
+        normal_material = Material(shader_manager.get_from_name("mvp_light_specular"))
         # normal_material = Material(shader_manager.get_from_name("world_space_color"))
         # normal_material = Material(shader_manager.get_from_name("world_space_normal"))
 

@@ -5,6 +5,7 @@
 // these are directions and should be already normalized
 // in the vertex shader
 in vec3 v2f_to_light_ws;
+in vec3 v2f_to_camera_ws;
 in vec3 v2f_normal_ws;
 
 out vec4 out_color;
