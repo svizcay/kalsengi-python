@@ -18,11 +18,15 @@ class LightGUI(ComponentGUI):
                 self.light.color = color
 
             # light_type_values = [str(e.value) for e in light_module.LightType]
+            # enum has e.value assigned starting at 1
             light_type_values = [e.name for e in light_module.LightType]
 
             # clicked, light_type = imgui.combo("type", self.light.light_type, light_type_values)
-            changed, light_type = imgui.combo("type", self.light.light_type, light_type_values)
+            # print("light type: {}".format(self.light.light_type))
+            light_type_current_index = self.light.light_type - 1    # light.light_type is a 1-based index enum
+            changed, opt_index = imgui.combo("type", light_type_current_index, light_type_values)
             if changed:
-                self.light.light_type = light_type
+                # print("light type: changed to value {}".format(light_type))
+                self.light.light_type = (opt_index + 1)
 
 

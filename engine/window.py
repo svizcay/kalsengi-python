@@ -163,6 +163,7 @@ class Window:
         blender_quad = GameObject("blender quad")
         game_camera = GameObject("game camera")
         light = GameObject("light")
+        light.transform.local_position = pyrr.Vector3([0, 5, 5])
         light.transform.local_euler_angles = pyrr.Vector3([-60, 5, 0])
         game_camera.transform.local_position = pyrr.Vector3([0, 1, 2.5])
         game_camera.transform.local_euler_angles = pyrr.Vector3([-20, 0, 0])
@@ -207,7 +208,7 @@ class Window:
 
         self.editor_scene_size = (890, 500)
         self.game_camera_component = game_camera.add_component(Camera, self.editor_scene_size[0]/self.editor_scene_size[1])
-        blender_quad.add_component(Rotate)
+        # blender_quad.add_component(Rotate)
 
         light.add_component(Light, LightType.DIRECTIONAL)
 
@@ -564,6 +565,7 @@ class Window:
             # additional checks for reloading shaders
             # if self.plane_object["shader"].dirty:
             #     self.plane_object["shader"].reload()
+            shader_manager.check_shaders()
 
             if self.use_imgui:
                 self.impl.process_inputs()

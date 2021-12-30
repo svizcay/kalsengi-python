@@ -24,6 +24,7 @@ void main()
     gl_Position = mvp * vec4(pos, 1);
 
     vec3 transformed_normal = (model * vec4(normal, 0)).xyz;
+    vec3 position_ws = (model * vec4(pos,1)).xyz;
     v2f_normal_ws = normalize(transformed_normal);
 
     // for a directional light (light_pos.w = 0)
@@ -33,7 +34,10 @@ void main()
     // the ray from the light source,
     // therefore, the opposite direction is the
     // from the surface to the light source
-    v2f_to_light_ws = -light_pos.xyz;
+    if (light_pos.w == 0)
+        v2f_to_light_ws = -light_pos.xyz;
+    else
+        v2f_to_light_ws = normalize(light_pos.xyz - position_ws);
 
     // for a point light (light_pos.w = 1)
     // direction to light is light.pos - pos_ws

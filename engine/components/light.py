@@ -7,8 +7,11 @@ import engine.gui.light_gui as light_gui
 
 # as a component, it needs to receive a game_object and therefore a transform.
 class LightType(IntEnum):
-    DIRECTIONAL = auto()
-    POINT = auto()
+    # when using auto, default value starts at 1
+    # i think it's better to reserve 0 as some sort of NONE value
+    # let's adapt the code assuming the first valid option has index 1
+    DIRECTIONAL = auto()    # this is getting assigned 1
+    POINT = auto()          # this is getting assigned 2
 
 # should i use a sub class for each type of light or just an enum?
 # let's use an enum for now
@@ -16,6 +19,10 @@ class Light(Component):
 
     def __init__(self, game_object, light_type = LightType.DIRECTIONAL):
         super().__init__(game_object)
+        # print("creating a light type {}".format(light_type))
+        # print("possible light types:")
+        for e in LightType:
+            print("value={}, name={}".format(e.value, e.name))
         self.light_type = light_type
         # we need to make sure all channels (specially the first one) are treated as float
         self.color = (1.0, 0.992, 0.658) # yellowish
