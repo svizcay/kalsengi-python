@@ -100,7 +100,7 @@ class Scene:
             imgui.end()
 
             gl.glLineWidth(1)
-            self.grid_renderer.shader.use()
+            self.grid_renderer.material.use()
             # the grid needs to move with the camera in the xy plane
             # actually not exactly like that.
             # it needs to move but at integer intervals

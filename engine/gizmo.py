@@ -22,7 +22,7 @@ class Gizmo:
         )
 
     def draw(self, transform, camera):
-        self.gizmo_renderer.shader.use()
+        self.gizmo_renderer.material.use()
         # gizmo should not be affected by object scaling.
         # to do so, we need to obtain the final position and pose of the object
         # and use that as model matrix
@@ -51,7 +51,7 @@ class CameraGizmo:
         )
 
     def draw(self, transform, camera):
-        self.renderer.shader.use()
+        self.renderer.material.use()
         # gizmo should not be affected by object scaling.
         # to do so, we need to obtain the final position and pose of the object
         # and use that as model matrix

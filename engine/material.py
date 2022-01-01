@@ -36,6 +36,8 @@ class Material:
         self.vertex_attribs = {}
         self.discarded_vertex_attribs = {}
 
+        self.uuid = None
+
         self.gui = None
 
         # no need to bind program yet
@@ -69,6 +71,9 @@ class Material:
             if (not type_ in gl_uniform_type_to_f):
                 print("type {} has not been added yet to gl_uniform_type_to_f".format(type_))
 
+        # the following code is supposed to return the active vertex attributes of the shader.
+        # were these active by default or because it happened that we activate them before
+        # when linking vertex data within a vao??
         nr_attribs = gl.glGetProgramiv(shader.program, gl.GL_ACTIVE_ATTRIBUTES)
         for i in range(nr_attribs):
             bufSize = gl.glGetProgramiv(shader.program, gl.GL_ACTIVE_ATTRIBUTE_MAX_LENGTH)

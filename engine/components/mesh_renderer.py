@@ -1,4 +1,7 @@
-# for creating VAO and querying shader
+# given that we need a mesh and its VBO,EBO to configure a VAO
+# and based on the mesh data we need to enable attributes in the shader program,
+# we are going to create a MeshRenderer class that will work as the link between them.
+
 import OpenGL.GL as gl
 # from . import vertex_attrib_loc
 from engine import vertex_attrib_loc
@@ -12,16 +15,17 @@ from engine.gui import MeshRendererGUI
 import ctypes
 
 class MeshRenderer(Component):
-    """ This class is in charge of rendering a model using some material."""
+    # we could say this class is in charge of rendering a model using some material
+    # but in reality, this class is more like the link between the mesh data
+    # and the shader vertex attributes available.
+
+    # the code for "rendering a model using a material" is done in the rendering loop
+    # of a scene graph and usually is sorted per material
 
     def __init__(self, game_object, mesh, material):
         super().__init__(game_object)
 
-        # we are not doing anything with the material!
-        # we need to use it for rendering
-        self.material = material
         self.mesh = mesh
-        self.shader = material.shader
 
         # whenever we have a class that inherits from Component
         # and we DO have a valid component gui, then set it
@@ -29,21 +33,41 @@ class MeshRenderer(Component):
         self.name = "mesh renderer"
 
         self.vao = gl.glGenVertexArrays(1)
-        # print("binding vao")
+
+        # set up material-mesh link by calling the setter property
+        self.material = material
+
+    # material getter
+    @property
+    def material(self):
+        return self._material
+
+    # material setter
+    @material.setter
+    def material(self, value):
+        self._material = value
+
+        # we need to configure the vao
+        # for that, we need to have the mesh data
+        # and the current material/shader vertex attribs
         gl.glBindVertexArray(self.vao)
 
+        # to configure the vao, we need the vbo and ebo bound
         # do we need to ensure we have the right vbo
-        # bound to GL_ARRAY_BUFFER?
-        # right now we have it bound just because we created the mesh recently
-        # a) yes, we need a vbo bound to GL_ARRAY_BUFFER
-        # gl.glBindBuffer(gl.GL_ARRAY_BUFFER, mesh.vbo)
-        # for the GL_ELEMENT_BUFFER, we need to bind it once again
-        # after binding the vao, otherwise the vao is not going to be aware
-        # of it
-        mesh.bind_buffers()
+        # this need to be done after biding the vao
+        self.mesh.bind_buffers()
 
         # let's check how well matches the mesh data
         # with the material/shader that we are going to use
+        # opengl offers two functions to inspect shaders' input:
+        # - glGetProgramiv(program, GL_ACTIVE_ATTRIBUTES)
+        #   that returns a list of attributes available and their type.
+        #   actually, the previous function just return the NUMBER of ative attribs.
+        #   the actual function to get the data attrib data is:
+        # - glGetActiveAttrib(program, index, returned_data)
+        # - glGetAttribLocation(program, attribName)
+        #   that returns specifically the location parameter of the attribute.
+        # NONE of this need the program to be bound (in use). That's why we need to specify the program
 
         # let's check what's available in the shader
         # do we need the glUseProgram() when calling glGetAttribLocation?
@@ -51,23 +75,24 @@ class MeshRenderer(Component):
         # we are not just 'checking' how well they match
         # but we are also connecting mesh data to vertex attributes in vertex shader.
         # we actually need to perform this every time we replace the material
+        # i think this part of the code should be using some interace provided by the material
         for attrib in vertex_attrib_loc:
-            loc = gl.glGetAttribLocation(self.shader.program, attrib)
+            loc = gl.glGetAttribLocation(self._material.shader.program, attrib)
             if (loc >= 0):
                 # things to test:
                 # - do not enable the attrib at all if vertex doesn't have data
                 # - enable attrib but don't specify any layout (attribPointer)
-                print("{} attrib available in shader {}".format(attrib, self.shader.program))
-                if mesh.attribs[attrib] is not None:
+                print("{} attrib available in shader {}".format(attrib, self._material.shader.program))
+                if self.mesh.attribs[attrib] is not None:
                     print("{} attrib available in mesh data".format(attrib))
                     gl.glEnableVertexAttribArray(loc)
                     gl.glVertexAttribPointer(
                         loc,            # index of the generic vertex attribute
-                        mesh.attribs_size[attrib],  # size: nr of components in the vertex attribute
+                        self.mesh.attribs_size[attrib],  # size: nr of components in the vertex attribute
                         gl.GL_FLOAT,    # data type of each element
                         gl.GL_FALSE,    # should data go through normalization?
                         0,              # stride
-                        ctypes.c_void_p(mesh.attribs_offset[attrib]) # offset but in pointer format (it's supposed to be an adddres)
+                        ctypes.c_void_p(self.mesh.attribs_offset[attrib]) # offset but in pointer format (it's supposed to be an adddres)
                     )
                 else:
                     # enabling the attrib without specifying the data source
@@ -79,7 +104,7 @@ class MeshRenderer(Component):
                     gl.glDisableVertexAttribArray(loc)
                     print("{} attrib not available in mesh data".format(attrib))
             else:
-                print("{} attrib not available in shader {}".format(attrib, self.shader.program))
+                print("{} attrib not available in shader {}".format(attrib, self._material.shader.program))
 
         gl.glBindVertexArray(0)
 

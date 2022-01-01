@@ -127,6 +127,7 @@ def _create_material(name, shader_name):
     _id_to_name[uuid] = name
     _name_to_id[name] = uuid
     material = Material(shader_manager.get_from_name(shader_name))
+    material.uuid = uuid
     material_gui = MaterialGUI(material)
     _materials[uuid] = material
     _nr_materials = _nr_materials + 1

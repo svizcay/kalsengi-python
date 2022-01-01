@@ -18,9 +18,7 @@ from engine import Window, Triangle
 
 if __name__ == "__main__":
 
-    # # window = Window(1920, 1080, "k a l s e n g i (python)")
-    # window = Window(1024, 768, "k a l s e n g i (python)")
-    window = Window(1920, 1080, "k a l s e n g i (python)")
+    window = Window()
     window.run()
 
     print("closing application")

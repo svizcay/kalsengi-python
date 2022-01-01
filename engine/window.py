@@ -31,13 +31,16 @@ from .components import MeshRenderer, Camera, Light, LightType, Rotate
 
 from .base_mesh import BaseMesh, Triangle, Quad, Cube, Line, GizmoMesh
 from .texture import Texture
+from .image import Image
 from .framebuffer import Framebuffer
 from . import VertexAttrib # this was defined in __init__.py
 from .free_fly_camera import FreeFlyCamera
 from .transform import Transform
 from .game_object import GameObject
-from .fps_counter import FPSCounter
 from .scene import Scene
+
+# import engine.assets.scenes.example_scene # this works well (we didn't have to add any init.py file)
+from engine.assets.scenes.example_scene import ExampleScene # this also worked (without init.py)
 
 from . import shader_manager # no need to rename it to the same
 from . import material_manager
@@ -48,6 +51,8 @@ from .gui import CameraGUI
 from .gui import MaterialGUI
 
 import engine.time
+
+from .editor_window import RenderingInfoWindow, MaterialManagerWindow, SceneCameraWindow
 
 # we are not getting this callback executed anymore
 # since we started using imgui
@@ -71,33 +76,54 @@ class Window:
     # like type checkers, IDEs, linters, etc.
     # for paraters: <name>: <type>
     # for return values def function() -> <type>:
-    def __init__(self, width: int, height: int, title: str):
+    def __init__(self):
         if not glfw.init():
             raise Exception("glfw could not be initialized")
 
+        self.title = "k a l s e n g i (python)"
+
+        # make it toggle (glfw.set_monitor)
         full_screen = False
         # whether we render the main scene directly to the main framebuffer or if we render to some off-screen framebuffer
         self.render_scene_to_window = True
         self.render_webcam = False
 
+        # before creating the screen, let's query the monitor
+        # and video modes
+        monitor = glfw.get_primary_monitor()
+        video_modes = glfw.get_video_modes(monitor) # returns the nr of video modes
+        current_video_mode = glfw.get_video_mode(monitor)
+        self.width = current_video_mode.size.width
+        self.height = current_video_mode.size.height
+        # print("current video mode: {}".format(current_video_mode))
+        # print("video mode {}x{} @{}".format(
+        #     current_video_mode.size.width,
+        #     current_video_mode.size.height,
+        #     current_video_mode.refresh_rate
+        # ))
+
+        glfw.window_hint(glfw.MAXIMIZED, True)
+
         # windowed
         if full_screen:
-            self._context = glfw.create_window(width, height, title, glfw.get_primary_monitor(), None)
+            self._context = glfw.create_window(self.width, self.height, self.title, monitor, None)
         else:
-            self._context = glfw.create_window(width, height, title, None, None)
+            self._context = glfw.create_window(self.width, self.height, self.title, None, None)
         # full screen
 
-        self.framebuffer_width = self.width = width
-        self.framebuffer_height = self.height = height
+        window_logo = Image.from_file("img/sf_logo_128x128.png")
+        glfw.set_window_icon(self._context, 1, window_logo.pil_image)
+
+        self.framebuffer_width = self.width
+        self.framebuffer_height = self.height
 
         if not self._context:
             glfw.terminate()
             raise Exception("glfw could not open a window")
 
-        if full_screen:
-            glfw.set_window_pos(self._context, 0, 0)
-        else:
-            glfw.set_window_pos(self._context, 100, 100)
+        # now we show the window at the corner
+        # independently if it's fully screen or not
+        # glfw.set_window_pos(self._context, 100, 100)
 
         # set glfw user window pointer for callbacks
         glfw.set_window_user_pointer(self._context, self)
@@ -153,77 +179,19 @@ class Window:
         material_manager.init()
 
         # SCENE BEGIN
-        # scene = collection of gameObjects
-        self.scene = Scene()
+        # self.scene = Scene()
 
-        # monkey_go = GameObject("monkey")
-        # dragon_go = GameObject("dragon")
-        # plane_go = GameObject("floor")
-        # cube_go = GameObject("cube")
+        self.scene = ExampleScene()
 
-        blender_quad = GameObject("blender quad")
-        game_camera = GameObject("game camera")
-        light = GameObject("light")
-        light.transform.local_position = pyrr.Vector3([0, 5, 5])
-        light.transform.local_euler_angles = pyrr.Vector3([-60, 5, 0])
-        game_camera.transform.local_position = pyrr.Vector3([0, 1, 2.5])
-        game_camera.transform.local_euler_angles = pyrr.Vector3([-20, 0, 0])
-
-        # set initial transforms
-        # monkey_go.transform.local_position = pyrr.Vector3([0, 3, 0])
-        # monkey_go.transform.local_euler_angles = pyrr.Vector3([270, 0, 0])
-        # plane_go.transform.local_euler_angles = pyrr.Vector3([270, 0, 0])
-        # plane_go.transform.local_scale = pyrr.Vector3([10,10,10])
-        # cube_go.transform.local_position = pyrr.Vector3([0, 0.5, 0])
-
-        print("about to load something with assimp")
-        # plane_mesh = Quad()
-        # cube_mesh = Cube()
-        # monkey_mesh = BaseMesh.from_file("models/suzanne/suzanne.fbx", True)
-        # dragon_mesh = BaseMesh.from_file("models/xyzrgb_dragon/xyzrgb_dragon.obj", True)
-        # blender_quad_mesh = BaseMesh.from_file("models/primitives/plane_vertices.obj", True)
-        blender_quad_mesh = BaseMesh.from_file("models/xyzrgb_dragon/xyzrgb_dragon.obj", False)
-        # blender_quad_mesh = BaseMesh.from_file("models/primitives/plane_vertices.obj", False)
-        # blender_quad_mesh = BaseMesh.from_file("models/suzanne/suzanne.fbx", False)
-        # blender_quad_mesh = Cube()
-        blender_quad.transform.local_scale = pyrr.Vector3([0.1, 0.1, 0.1])
-        # gizmo = Gizmo()
-
-        # add components to game objects
-
-        # # add renderers
-        # redenderers now should not take shaders direclty BUT MATERIALS
-        # plane_go.add_component(MeshRenderer, plane_mesh, flat_color_shader)
-        # cube_go.add_component(MeshRenderer, cube_mesh, texture_shader)
-        # monkey_go.add_component(MeshRenderer, monkey_mesh, texture_shader)
-        # # dragon_go.add_component(MeshRenderer, dragon_mesh, texture_shader)
-        # self.gizmo_renderer = MeshRenderer(
-        #     None,
-        #     gizmo,
-        #     gizmo_shader
-        # )
-
-
-        # components such as cameras and lights need to be added BEFORE adding
-        # the game objects into the scene
+        # all the code where we:
+        # - create game objects
+        # - add components
+        # - set values
+        # - etc
+        # they should be done in some sort of scene.setup
+        self.scene.setup()
 
         self.editor_scene_size = (890, 500)
-        self.game_camera_component = game_camera.add_component(Camera, self.editor_scene_size[0]/self.editor_scene_size[1])
-        # blender_quad.add_component(Rotate)
-
-        light.add_component(Light, LightType.DIRECTIONAL)
-
-        default_material = material_manager.get_from_name("light_specular")
-
-        blender_quad.add_component(MeshRenderer, blender_quad_mesh, default_material)
-
-        # self.scene.add_game_object(dragon_go)
-        # self.scene.add_game_object(monkey_go)
-        # self.scene.add_game_object(plane_go)
-        # self.scene.add_game_object(cube_go)
-        self.scene.add_game_object(blender_quad)
-        self.scene.add_game_object(game_camera)
-        self.scene.add_game_object(light)
 
         # triangle = Triangle()
         # triangle = Triangle(VertexAttrib.POS)
@@ -256,15 +224,10 @@ class Window:
 
         # camera stuff
         print("creating scene camera gameObject")
-        self.camera_go = GameObject("scene camera")
-        self.camera = self.camera_go.add_component(Camera, self.editor_scene_size[0]/self.editor_scene_size[1])
-        self.camera_go.transform.local_position = pyrr.Vector3([0, 1.7, 5])
-        # print("scene camera view matrix {}".format(self.camera_go.transform.view_mat))
-        # print("field of view: {}".format(self.camera.vfov))
-        # print("**********")
-        self.camera_gui = CameraGUI(self.camera)
-        self.camera_transform_gui = TransformGUI(self.camera_go.transform)
-        self.free_fly_camera = FreeFlyCamera(self.camera_go.transform)
+        scene_camera_go = GameObject("scene camera")
+        self.scene_camera = scene_camera_go.add_component(Camera, self.editor_scene_size[0]/self.editor_scene_size[1])
+        scene_camera_go.transform.local_position = pyrr.Vector3([0, 1.7, 5])
+        self.free_fly_camera = FreeFlyCamera(scene_camera_go.transform)
         # self.free_fly_camera = FreeFlyCamera(self.cube_go.transform)
 
         # setting up frame bufffer for the editor scene
@@ -284,14 +247,27 @@ class Window:
             # imgui.get_io().fonts.get_tex_data_as_rgba32() this is giving me error when calling imgui.render()
             self.scene_imgui_window_focused = False
 
-        self.fps_counter = FPSCounter()
+        self.rendering_info_window = RenderingInfoWindow(self)
+        self.material_manager_window = MaterialManagerWindow(self)
+        self.scene_camera_window = SceneCameraWindow(self, self.scene_camera)
         # enable vsync
-        self.vsync = True
+        self._vsync = True
         glfw.swap_interval(1)
 
         # testing opencv
         if self.render_webcam:
             self.vid = cv2.VideoCapture(0)
+
+
+    @property
+    def vsync(self):
+        return self._vsync
+
+    @vsync.setter
+    def vsync(self, value):
+        self._vsync = value
+        glfw.swap_interval(self._vsync)
+
 
     def resize_window(self, width, height):
         print("resizing window to {}x{}".format(width, height))
@@ -332,13 +308,13 @@ class Window:
         if not self.render_scene_to_window:
             gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, self.scene_framebuffer.fbo)
             gl.glViewport(0, 0, *self.editor_scene_size)
-        gl.glClearColor(*self.camera.clear_color, 1)# light blue
+        gl.glClearColor(*self.scene_camera.clear_color, 1)# light blue
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
 
-        self.scene.draw_scene(self.camera)
+        self.scene.draw_scene(self.scene_camera)
 
         # draw overlays such as gizmos
-        self.scene.draw_overlay(self.camera)
+        self.scene.draw_overlay(self.scene_camera)
 
         # restore framebuffer and viewport
         gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, 0)
@@ -358,6 +334,7 @@ class Window:
         gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, 0)
         gl.glViewport(0, 0,self.framebuffer_width, self.framebuffer_height)
 
+    # this is supposed to be the application window's gui
     def draw_gui(self):
         # begin_main_menu_bar creates a full size window with a menu bar added
         if imgui.begin_main_menu_bar():
@@ -376,13 +353,73 @@ class Window:
                     imgui.end_menu()
 
                 imgui.end_menu()
+            if imgui.begin_menu("Window", True):
+                # label, shortcut, selected, enabled
+                # seletec it means the menu item has a check mark next to it
+                # we can use the check mark to 'indicate' that the window is already open
+                clicked, selected = imgui.menu_item(
+                    "Scene Hierarchy", None, True, True
+                )
 
+                clicked, selected = imgui.menu_item(
+                    "Scene Camera",
+                    shortcut=None,
+                    selected=self.scene_camera_window.open,
+                    enabled=not self.scene_camera_window.open
+                )
+                if clicked and not self.scene_camera_window.open:
+                    self.scene_camera_window.open = True
 
+                clicked, selected = imgui.menu_item(
+                    "Game View", None, True, True
+                )
+
+                # selected is going to be True when window is open
+                # and enabled the opposite
+                # i couldn't manage to understand the 2nd returned value 'selected'
+                clicked, _ = imgui.menu_item(
+                    "Rendering Info",
+                    shortcut=None,
+                    selected=self.rendering_info_window.open, # will have a mark next to the label
+                    enabled=not self.rendering_info_window.open # whether the menu entry is grayed out or not
+                )
+                # print("menu entry selected={}".format(selected))
+
+                if clicked and not self.rendering_info_window.open:
+                    # print("opening rendering info window")
+                    self.rendering_info_window.open = True
+
+                clicked, selected = imgui.menu_item(
+                    "Materials",
+                    shortcut=None,
+                    selected=self.material_manager_window.open,
+                    enabled=not self.material_manager_window.open
+                )
+
+                if clicked and not self.material_manager_window.open:
+                    # print("opening rendering info window")
+                    self.material_manager_window.open = True
+
+                clicked, selected = imgui.menu_item(
+                    "OpenCV webcam", None, True, True
+                )
+
+                clicked, selected = imgui.menu_item(
+                    "ImGUI Metrics", None, True, True
+                )
+                # imgui.show_metrics_window()
+                # imgui.show_style_editor()
+
+                imgui.end_menu()
             imgui.end_main_menu_bar()
 
         region_available = imgui.get_content_region_available()
         region_max = imgui.get_content_region_max()
         # print("region available {}\nmaxregion {}".format(region_available, region_max))
+
+        self.material_manager_window.draw()
+        self.rendering_info_window.draw()
+        self.scene_camera_window.draw()
 
         # setting size 0 = autofit
         imgui.set_next_window_size(0, 0)
@@ -392,21 +429,16 @@ class Window:
         # imgui.text("test text")
         imgui.text("scene window focused = {}".format(self.scene_imgui_window_focused))
         # self.cube_object["transform-gui"].draw()
-        imgui.separator()
-        imgui.text("scene camera")
-        # self.camera_transform_gui.draw()
-        self.camera_gui.draw()
-        changed, clear_color = imgui.color_edit3("bg color", *self.clear_color)
-        if changed:
-            self.clear_color = clear_color
+
+        # imgui.separator()
+        # imgui.text("scene camera")
+        # # self.camera_transform_gui.draw()
+        # self.camera_gui.draw()
+        # changed, clear_color = imgui.color_edit3("bg color", *self.clear_color)
+        # if changed:
+        #     self.clear_color = clear_color
         imgui.end()
 
-        imgui.begin("Info")
-        imgui.text("FPS: {}".format(self.fps_counter.fps))
-        changed, self.vsync = imgui.checkbox("vsync", self.vsync)
-        if changed:
-            glfw.swap_interval(self.vsync)
-        imgui.end()
 
         # # pop up example
         # imgui.begin("Example: simple popup")
@@ -547,10 +579,9 @@ class Window:
 
             self.current_time = glfw.get_time()
             self.delta_time = self.current_time - self.previous_time
+            # do i need to mark them as global in order to the other scripts to see the changes?
             engine.time.time = glfw.get_time()
             engine.time.delta_time = self.current_time - self.previous_time
-
-            self.fps_counter.update(self.current_time, self.delta_time)
 
             ####################################################################
             # INPUT EVENTS
@@ -559,6 +590,8 @@ class Window:
             # if self.plane_object["shader"].dirty:
             #     self.plane_object["shader"].reload()
             shader_manager.check_shaders()
+
+            self.rendering_info_window.update()
 
             if self.use_imgui:
                 self.impl.process_inputs()
@@ -584,7 +617,7 @@ class Window:
                 imgui.new_frame()
 
             self.render_scene()
-            self.render_game() # render the scene using the game camera instead of the scene camera
+            # self.render_game() # render the scene using the game camera instead of the scene camera
 
             if self.use_imgui:
                 self.draw_gui()
