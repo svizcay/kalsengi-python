@@ -85,7 +85,6 @@ class Window:
         self.full_screen = False
         # whether we render the main scene directly to the main framebuffer or if we render to some off-screen framebuffer
         self.render_scene_to_window = True
-        self.render_webcam = False
 
         # before creating the screen, let's query the monitor
         # and video modes
@@ -250,11 +249,6 @@ class Window:
         # enable vsync
         self._vsync = True
         glfw.swap_interval(1)
-
-        # testing opencv
-        if self.render_webcam:
-            self.vid = cv2.VideoCapture(0)
-
 
     @property
     def vsync(self):
@@ -473,20 +467,13 @@ class Window:
             #imgui.WINDOW_NO_RESIZE
         )
 
-        if self.render_webcam:
-            imgui.image(
-                self.texture_webcam.texture,
-                self.texture_webcam.width,
-                self.texture_webcam.height,
-                (0,1), (1,0)    # we invert the v in uv coords
-            )
-        else:
-            imgui.image(
-                self.game_framebuffer.render_texture.texture,
-                self.game_framebuffer.render_texture.width,
-                self.game_framebuffer.render_texture.height,
-                (0,1), (1,0)    # we invert the v in uv coords
-            )
+        imgui.image(
+            self.game_framebuffer.render_texture.texture,
+            self.game_framebuffer.render_texture.width,
+            self.game_framebuffer.render_texture.height,
+            (0,1), (1,0)    # we invert the v in uv coords
+        )
+
         imgui.end()
 
         self.scene.draw_gui()
@@ -575,12 +562,6 @@ class Window:
             gl.glClearColor(*self.clear_color, 1)# gray
             gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
 
-            # testing opencv
-            if self.render_webcam:
-                ret, frame = self.vid.read()
-                # cv2.imshow('frame', frame)
-                self.texture_webcam = Texture.from_opencv_mat(frame)
-
             if self.use_imgui:
                 # # # start new frame context
                 imgui.new_frame()
@@ -601,10 +582,6 @@ class Window:
             glfw.poll_events()
 
             self.previous_time = self.current_time
-
-        # opencv
-        if self.render_webcam:
-            self.vid.release()
 
         if self.use_imgui:
             self.impl.shutdown()
