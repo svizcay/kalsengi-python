@@ -30,7 +30,8 @@ class OpenCVWebcamWindow(EditorWindow):
         super().__init__(main_window)
         # since we are releasing the video every time the window gets closed
         # we also need to get the reference every time we open the window
-        self.vid = cv2.VideoCapture(0)
+        # it's better to initialize the webcam only if we are going to use it
+        self.vid = None#cv2.VideoCapture(0)
         self.texture_webcam = None
 
     def update(self):
