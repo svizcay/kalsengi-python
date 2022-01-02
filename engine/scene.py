@@ -3,6 +3,7 @@ import inspect
 import imgui
 import pyrr
 import OpenGL.GL as gl
+import random
 
 from .gui import GameObjectGUI
 # it seeems we don't need to import a module/class name if we are not going to instantiate an object
@@ -16,6 +17,9 @@ from .base_mesh import GridMesh
 
 from . import shader_manager
 from . import material_manager
+
+# for testing
+from engine.gl_uniform import gl_uniform_type_to_f
 
 
 # order of events:
@@ -45,6 +49,16 @@ class Scene:
             grid_material
         )
         self.grid_clip_distance = 75.0
+
+        # test calling useProgram multiple times
+        self.nr_calls_to_glUseProgram = 100
+        self.test_multiple_calls_glUseProgram = False
+        self.alternate_programs_ids = True
+
+        # test calling glUniform multiple times
+        self.nr_calls_to_glUniform = 2000
+        self.test_multiple_calls_glUniform = True
+        self.test_call_glUniform_directly = False
 
     def add_game_object(self, game_object):
         self.game_objects.append(game_object)
@@ -98,6 +112,31 @@ class Scene:
             changed, grid_clip_distance = imgui.slider_float("grid clip", self.grid_clip_distance, 0.0001, 100)
             if changed:
                 self.grid_clip_distance = grid_clip_distance
+
+            # tests
+            changed, value = imgui.drag_int("nr calls glUseProgram", self.nr_calls_to_glUseProgram)
+            if changed:
+                self.nr_calls_to_glUseProgram = value
+            clicked, state = imgui.checkbox("test multiple calls glUseProgram", self.test_multiple_calls_glUseProgram)
+            if clicked:
+                self.test_multiple_calls_glUseProgram = state
+
+            clicked, state = imgui.checkbox("alternate programs", self.alternate_programs_ids)
+            if clicked:
+                self.alternate_programs_ids = state
+
+            clicked, state = imgui.checkbox("test multiple calls glUniform", self.test_multiple_calls_glUniform)
+            if clicked:
+                self.test_multiple_calls_glUniform = state
+
+            clicked, state = imgui.checkbox("call glUniform directly", self.test_call_glUniform_directly)
+            if clicked:
+                self.test_call_glUniform_directly = state
+
+            changed, value = imgui.drag_int("nr calls glUniform", self.nr_calls_to_glUniform)
+            if changed:
+                self.nr_calls_to_glUniform = value
+
             imgui.end()
 
             gl.glLineWidth(1)
@@ -118,9 +157,65 @@ class Scene:
             self.grid_renderer.render()
             gl.glLineWidth(5)
 
+
         # rather than interating directly through the list of game objects,
         # we need to find what materials they are using and render them by grouping them
         # by materials
+
+        # testing code:
+        # let's see if opengl is smart enough to realize we are binding the same
+        # opengl shader program by binding it multiple times
+        material_to_test = material_manager.get_from_name("flat_color_uniform")
+        alternative_material_to_test = material_manager.get_from_name("mix_textures_color")
+        if  self.test_multiple_calls_glUseProgram:
+            for i in range(self.nr_calls_to_glUseProgram):
+                if self.alternate_programs_ids:
+                    if i % 2 == 0:
+                        material_to_test.use()
+                    else:
+                        alternative_material_to_test.use()
+                else:
+                    material_to_test.use()
+
+        if self.test_multiple_calls_glUniform:
+            material_to_test.use()
+            for i in range(self.nr_calls_to_glUniform):
+                r = random.random()
+                g = 0.0#random.random()
+                b = 0.0#random.random()
+                color = [r,g,b]
+                if self.test_call_glUniform_directly:
+                    # is it checking the key in the dict what makes it slow?
+                    # a) no. it's still fast calling directly even looking at the dict
+                    # is it when we call isinstance?
+                    # a) no. it's still faster than calling our wrapper
+                    # is it calling the nest dict?
+                    # no..finding the parent function gl_uniform_type_to_f was not the problem
+                    # is calculating the lenght of the nr of parameters?
+                    # no. it was still faster
+                    # maybe it's the packing unpacking of the parameters
+                    # maybe we are creating new lists
+                    # how many times we pack/unpack the parameters?
+                    # - when they are passed to set_only_uniforms, the list is expanded at call time
+                    # and they are grouped into a list when they are received
+                    # it's around 5 to 6 times.
+                    # and yes, this is one of the factors...it went down from 120
+                    # to 90 but still not as bad as 40 when using or wrapper
+                    if "color" in material_to_test.uniforms:
+                        loc = material_to_test.uniforms["color"]["loc"]
+                        type_ = material_to_test.uniforms["color"]["type"]
+                        function_wrapper = gl_uniform_type_to_f[gl.GL_FLOAT_VEC3]
+                        nr_values = len(color)
+                        first_unpacking = [*color]    # when calling set_only_uniform
+                        second_unpacking = [*first_unpacking]
+                        third_unpacking = [*second_unpacking]
+                        forth_unpacking = [*third_unpacking]
+                        fith_unpacking = [*forth_unpacking]
+                        if isinstance(r, float):
+                            gl.glUniform3f(loc, r, 0.0, 0.0)
+                else:
+                    material_to_test.set_only_uniform("color", r, 0.0, 0.0)
+
 
         game_objects_per_material = {}
         for game_obj in self.game_objects:

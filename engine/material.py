@@ -103,6 +103,9 @@ class Material:
     def use(self):
         self.shader.use()
 
+    # this method will internally bind the shader program before
+    # setting the uniform.
+    # let's try to offer a method where we don't bind the program
     def set_uniform(self, uniform_name, *uniform_values):
         if (uniform_name in self.uniforms):
             loc = self.uniforms[uniform_name]["loc"]
@@ -113,3 +116,19 @@ class Material:
             set_uniform(uniform_type, loc, *uniform_values)
         else:
             print("uniform {} not found in shader".format(uniform_name))
+
+    # right now set_uniform is grouping uniform values
+    # into a single array (they get packed)
+    # and therefore, to call this method, whenever we have a list of parameters,
+    # we need to unpack them.
+    # this is very inefficient
+    # let's always receive an array and if the value is only one,
+    # the caller should have to wrap it into an array
+    def set_only_uniform(self, uniform_name, *uniform_values):
+        if (uniform_name in self.uniforms):
+            loc = self.uniforms[uniform_name]["loc"]
+            uniform_type = self.uniforms[uniform_name]["type"]
+            self.uniforms[uniform_name]["value"] = uniform_values
+            # make sure program is in use before setting uniform value
+            # self.shader.use()
+            set_uniform(uniform_type, loc, *uniform_values)
