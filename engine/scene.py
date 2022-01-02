@@ -93,6 +93,7 @@ class Scene:
         # testing grid
         if is_editor_camera:
 
+            # settings for drawing the grid
             imgui.begin("grid")
             changed, grid_clip_distance = imgui.slider_float("grid clip", self.grid_clip_distance, 0.0001, 100)
             if changed:

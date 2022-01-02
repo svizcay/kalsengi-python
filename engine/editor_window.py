@@ -1,4 +1,5 @@
 import imgui
+import cv2
 
 from .fps_counter import FPSCounter
 import engine.time
@@ -7,6 +8,7 @@ import math
 import engine.material_manager
 from engine.gui.camera_gui import CameraGUI
 from engine.gui.transform_gui import TransformGUI
+from engine.texture import Texture
 
 class EditorWindow:
 
@@ -21,6 +23,49 @@ class EditorWindow:
 
     def draw(self):
         pass
+
+class OpenCVWebcamWindow(EditorWindow):
+
+    def __init__(self, main_window):
+        super().__init__(main_window)
+        # since we are releasing the video every time the window gets closed
+        # we also need to get the reference every time we open the window
+        self.vid = cv2.VideoCapture(0)
+        self.texture_webcam = None
+
+    def update(self):
+        if self.open:
+            ret, frame = self.vid.read()
+            self.texture_webcam = Texture.from_opencv_mat(frame)
+
+    def draw(self):
+        if self.open and self.texture_webcam is not None:
+
+            if self.vid is None:
+                self.vid = cv2.VideoCapture(0)
+
+            imgui.set_next_window_size(-1, -1)
+            expanded, opened = imgui.begin(
+                "OpenCV Webcam",
+                closable=True,
+                # flags=imgui.WINDOW_ALWAYS_AUTO_RESIZE
+                flags=imgui.WINDOW_NO_RESIZE
+            )
+            self.open = opened
+
+            if self.texture_webcam is not None:
+                imgui.image(
+                    self.texture_webcam.texture,
+                    self.texture_webcam.width,
+                    self.texture_webcam.height,
+                    (0,1), (1,0)    # we invert the v in uv coords
+                )
+
+            if not self.open:
+                self.vid.release()
+                self.vid = None
+
+            imgui.end()
 
 class SceneCameraWindow(EditorWindow):
 
@@ -48,6 +93,7 @@ class SceneCameraWindow(EditorWindow):
 
     def draw(self):
         if self.open:
+            # setting size 0 = autofit
             imgui.set_next_window_size(-1, -1)
             expanded, opened = imgui.begin(
                 "Scene Camera",
@@ -56,6 +102,9 @@ class SceneCameraWindow(EditorWindow):
                 flags=imgui.WINDOW_NO_RESIZE
             )
             self.open = opened
+
+            # imgui.text("scene window focused = {}".format(self.scene_imgui_window_focused))
+            # imgui.separator()
 
             self.camera_transform_gui.draw()
             self.camera_gui.draw()

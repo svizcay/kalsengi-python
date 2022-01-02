@@ -3,7 +3,6 @@ import OpenGL.GL as gl
 import pyrr
 import imgui
 from imgui.integrations.glfw import GlfwRenderer
-import cv2
 # from math import sin
 
 # for the render loop:
@@ -52,7 +51,7 @@ from .gui import MaterialGUI
 
 import engine.time
 
-from .editor_window import RenderingInfoWindow, MaterialManagerWindow, SceneCameraWindow
+from .editor_window import RenderingInfoWindow, MaterialManagerWindow, SceneCameraWindow, OpenCVWebcamWindow
 
 # we are not getting this callback executed anymore
 # since we started using imgui
@@ -83,7 +82,7 @@ class Window:
         self.title = "k a l s e n g i (python)"
 
         # make it toggle (glfw.set_monitor)
-        full_screen = False
+        self.full_screen = False
         # whether we render the main scene directly to the main framebuffer or if we render to some off-screen framebuffer
         self.render_scene_to_window = True
         self.render_webcam = False
@@ -105,7 +104,7 @@ class Window:
         glfw.window_hint(glfw.MAXIMIZED, True)
 
         # windowed
-        if full_screen:
+        if self.full_screen:
             self._context = glfw.create_window(self.width, self.height, self.title, monitor, None)
         else:
             self._context = glfw.create_window(self.width, self.height, self.title, None, None)
@@ -146,6 +145,10 @@ class Window:
         # i should decide whether i'm going to use pyrr.Vector
         # individual floats or python arrays to represent x,y,z rgb data
         # self.clear_color = (0.2, 0.258, 0.258) # green-grey
+        # we need:
+        # engine clear color (background)
+        # scene view clear color (scene camera)
+        # game view clear color (game camera)
         self.clear_color = (0.093, 0.108, 0.108) # green-grey
 
         # gl.glClearColor(0.302, 0.365, 0.325, 1)# greenish
@@ -182,13 +185,6 @@ class Window:
         # self.scene = Scene()
 
         self.scene = ExampleScene()
-
-        # all the code where we:
-        # - create game objects
-        # - add components
-        # - set values
-        # - etc
-        # they should be done in some sort of scene.setup
         self.scene.setup()
 
         self.editor_scene_size = (890, 500)
@@ -250,6 +246,7 @@ class Window:
         self.rendering_info_window = RenderingInfoWindow(self)
         self.material_manager_window = MaterialManagerWindow(self)
         self.scene_camera_window = SceneCameraWindow(self, self.scene_camera)
+        self.opencv_webcam_window = OpenCVWebcamWindow(self)
         # enable vsync
         self._vsync = True
         glfw.swap_interval(1)
@@ -401,8 +398,16 @@ class Window:
                     self.material_manager_window.open = True
 
                 clicked, selected = imgui.menu_item(
-                    "OpenCV webcam", None, True, True
+                    "OpenCV webcam",
+                    shortcut=None,
+                    selected=self.opencv_webcam_window.open,
+                    enabled=not self.opencv_webcam_window.open
                 )
+
+                if clicked and not self.opencv_webcam_window.open:
+                    # print("opening rendering info window")
+                    self.opencv_webcam_window.open = True
+
 
                 clicked, selected = imgui.menu_item(
                     "ImGUI Metrics", None, True, True
@@ -420,44 +425,7 @@ class Window:
         self.material_manager_window.draw()
         self.rendering_info_window.draw()
         self.scene_camera_window.draw()
-
-        # setting size 0 = autofit
-        imgui.set_next_window_size(0, 0)
-        imgui.begin("Hierarchy")
-        # self.material_gui.draw()
-        # imgui.separator()
-        # imgui.text("test text")
-        imgui.text("scene window focused = {}".format(self.scene_imgui_window_focused))
-        # self.cube_object["transform-gui"].draw()
-
-        # imgui.separator()
-        # imgui.text("scene camera")
-        # # self.camera_transform_gui.draw()
-        # self.camera_gui.draw()
-        # changed, clear_color = imgui.color_edit3("bg color", *self.clear_color)
-        # if changed:
-        #     self.clear_color = clear_color
-        imgui.end()
-
-
-        # # pop up example
-        # imgui.begin("Example: simple popup")
-
-        # if imgui.button("select"):
-        #     imgui.open_popup("select-popup")
-
-        # imgui.same_line()
-
-        # if imgui.begin_popup("select-popup"):
-        #     imgui.text("Select one")
-        #     imgui.separator()
-        #     imgui.selectable("One")
-        #     imgui.selectable("Two")
-        #     imgui.selectable("Three")
-        #     imgui.end_popup()
-
-        # imgui.end()
-        # # end pop up example
+        self.opencv_webcam_window.draw()
 
         # let's make the window a full screen window
         #imgui.set_next_window_size(self.width, self.height)
@@ -592,6 +560,7 @@ class Window:
             shader_manager.check_shaders()
 
             self.rendering_info_window.update()
+            self.opencv_webcam_window.update()
 
             if self.use_imgui:
                 self.impl.process_inputs()
