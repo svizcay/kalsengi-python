@@ -10,7 +10,9 @@
 # using numpy instead
 import numpy as np
 import pyassimp as assimp
-import pickle
+
+import pickle # python version (i was told cpickle is better)
+# import cPickle as pickle # i think it's not meant for python 3
 
 # for paths (python 3.5)
 from pathlib import PurePath

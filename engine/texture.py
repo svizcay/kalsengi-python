@@ -47,6 +47,15 @@ class Texture:
         # we need to say so by glUniform1i (loc, tex_unit)
         texture_unit = gl.GL_TEXTURE0 + offset
 
+        # activating the texture unit is always
+        # before binding it.
+        # and we need to do it every time
+        # because we don't know if someone else activate
+        # last time another texture unit.
+        # if that were the case, then our binding would
+        # happend to that texture unit and
+        # our shader programs might be expecting the textures somewhere else
+
         gl.glActiveTexture(texture_unit);
         # print("texture {} getting bound to texture unit {} GL_TEXTURE_0={}".format(self.texture, texture_unit, gl.GL_TEXTURE0))
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture);

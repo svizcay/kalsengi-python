@@ -3,8 +3,8 @@ import pyrr
 from engine.scene import Scene
 from engine.game_object import GameObject
 from engine import material_manager
-from engine.components import Camera, Light, LightType, MeshRenderer
-from engine.base_mesh import BaseMesh, Cube
+from engine.components import Camera, Light, LightType, MeshRenderer, Rotate
+from engine.base_mesh import BaseMesh, Cube, Quad
 
 class ExampleScene(Scene):
 
@@ -16,7 +16,9 @@ class ExampleScene(Scene):
         ########################################################################
         # CREATE GAME OBJECTS
         ########################################################################
-        monkey_go = GameObject("monkey")
+        monkey_go = GameObject("red monkey")
+        monkey_go2 = GameObject("green monkey")
+        monkey_go3 = GameObject("textured monkey")
         # dragon_go = GameObject("dragon")
         # plane_go = GameObject("floor")
         # cube_go = GameObject("cube")
@@ -42,6 +44,10 @@ class ExampleScene(Scene):
         monkey_mesh = BaseMesh.from_imported_file("models/suzanne/suzanne.pkl")
         blender_quad_mesh = BaseMesh.from_imported_file("models/xyzrgb_dragon/xyzrgb_dragon.pkl")
 
+        # textured_material = material_manager.get_from_name("texture_uniform_color")
+        textured_material = material_manager.get_from_name("mix_textures_color")
+        red_diffuse_material = material_manager.get_from_name("red_diffuse")
+        green_diffuse_material = material_manager.get_from_name("green_diffuse")
         diffuse_material = material_manager.get_from_name("light_direction_color")
         default_material = material_manager.get_from_name("light_specular")
 
@@ -64,9 +70,16 @@ class ExampleScene(Scene):
         # NOTE: we need to know somehow what's going to be the size of the game view panel
         # game_camera.add_component(Camera, self.editor_scene_size[0]/self.editor_scene_size[1])
         game_camera.add_component(Camera, 16.0 / 9.0)
-        # blender_quad.add_component(Rotate)
         light.add_component(Light, LightType.DIRECTIONAL)
-        monkey_go.add_component(MeshRenderer, monkey_mesh, diffuse_material)
+        monkey_go.add_component(MeshRenderer, monkey_mesh, red_diffuse_material)
+        monkey_go2.add_component(MeshRenderer, monkey_mesh, green_diffuse_material)
+        monkey_go3.add_component(MeshRenderer, monkey_mesh, textured_material)
+
+        # i can not pass key parameters to game_object.add_component()
+        # monkey_go.add_component(Rotate, axis=pyrr.Vector3([0, 0, 1]))
+        monkey_go.add_component(Rotate, 90.0, pyrr.Vector3([0, 0, 1]))
+        monkey_go2.add_component(Rotate, 90.0, pyrr.Vector3([0, 0, 1]))
+        monkey_go3.add_component(Rotate, 90.0, pyrr.Vector3([0, 0, 1]))
         blender_quad.add_component(MeshRenderer, blender_quad_mesh, default_material)
 
         ########################################################################
@@ -77,8 +90,12 @@ class ExampleScene(Scene):
         game_camera.transform.local_position = pyrr.Vector3([0, 1, 2.5])
         game_camera.transform.local_euler_angles = pyrr.Vector3([-20, 0, 0])
         # set initial transforms
-        monkey_go.transform.local_position = pyrr.Vector3([0, 5, 0])
+        monkey_go.transform.local_position = pyrr.Vector3([-2, 5, 0])
         monkey_go.transform.local_euler_angles = pyrr.Vector3([270, 0, 0])
+        monkey_go2.transform.local_position = pyrr.Vector3([2, 5, 0])
+        monkey_go2.transform.local_euler_angles = pyrr.Vector3([270, 0, 0])
+        monkey_go3.transform.local_position = pyrr.Vector3([0, 3, 0])
+        monkey_go3.transform.local_euler_angles = pyrr.Vector3([270, 0, 0])
         # plane_go.transform.local_euler_angles = pyrr.Vector3([270, 0, 0])
         # plane_go.transform.local_scale = pyrr.Vector3([10,10,10])
         # cube_go.transform.local_position = pyrr.Vector3([0, 0.5, 0])
@@ -89,6 +106,8 @@ class ExampleScene(Scene):
         ########################################################################
         # self.scene.add_game_object(dragon_go)
         self.add_game_object(monkey_go)
+        self.add_game_object(monkey_go2)
+        self.add_game_object(monkey_go3)
         # self.scene.add_game_object(plane_go)
         # self.scene.add_game_object(cube_go)
         self.add_game_object(blender_quad)

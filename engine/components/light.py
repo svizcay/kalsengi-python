@@ -25,7 +25,8 @@ class Light(Component):
             print("value={}, name={}".format(e.value, e.name))
         self.light_type = light_type
         # we need to make sure all channels (specially the first one) are treated as float
-        self.color = (1.0, 0.992, 0.658) # yellowish
+        # self.color = (1.0, 0.992, 0.658) # yellowish
+        self.color = (1.0, 1.0, 0.878) # yellowish
 
         self.gui = light_gui.LightGUI(self)
         self.name = "light"

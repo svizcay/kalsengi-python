@@ -18,6 +18,8 @@ from .base_mesh import GridMesh
 from . import shader_manager
 from . import material_manager
 
+from engine.texture import Texture
+
 # for testing
 from engine.gl_uniform import gl_uniform_type_to_f
 
@@ -49,6 +51,23 @@ class Scene:
             grid_material
         )
         self.grid_clip_distance = 75.0
+
+        # testing textures
+        self.texture1 = Texture.from_image("img/ash_uvgrid01.jpg")
+        self.texture2 = Texture.from_image("img/wall.jpg")
+        self.texture3 = Texture.from_image("img/awesomeface.png")
+        self.textured_material = material_manager.get_from_name("mix_textures_color")
+        self.textured_material.use()
+        self.texture1.bind(0)
+        self.texture2.bind(1)
+        # even if we are not drawing anything with textures
+        # we can not tell about other libraries like imgui
+        # so it's not just a matter of telling the shader program what texture unit to use with glUnifor
+        # but also about saying what's the texture id in that texture slot (bind texture)
+        # but maybe what we can "skip" is saying over and over again what's the texture unit to use in the shader program
+        # that data is per glProgram and we should be able to set it just one
+        self.textured_material.set_uniform("texture0", [0])
+        self.textured_material.set_uniform("texture1", [1])
 
     def add_game_object(self, game_object):
         self.game_objects.append(game_object)
@@ -134,6 +153,14 @@ class Scene:
 
         for material in game_objects_per_material:
             material.use()
+
+            # testing textures
+            self.texture1.bind(0)
+            self.texture2.bind(1)
+            # material.set_uniform("texture0", [0])
+            # material.set_uniform("texture1", [1])
+            # end testing texture
+
             for game_obj in game_objects_per_material[material]:
                 for component in game_obj.components:
                     if isinstance(component, MeshRenderer):

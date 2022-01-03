@@ -19,10 +19,10 @@
 # the materials that are going to be used
 # and based on that, this material manager is going to
 # to ask the shader manager to load those shaders
-from .material import Material
-from . import shader_manager
-
-from .gui import MaterialGUI
+from engine.material import Material
+from engine import shader_manager
+from engine.gui.material_gui import MaterialGUI
+from engine.texture import Texture
 
 # internal attributes
 _nr_materials = 0
@@ -102,10 +102,16 @@ def get_material_id_by_ref(ref_material):
 ################################################################################
 
 def _create_materials():
+
+    # internal materials
+    _create_material("transform_gizmo", "mvp_vertex_color") # render using mvp matrix and vertex color
+    _create_material("camera_gizmo", "mvp_flat_color_uniform") # render using mvp matrix and vertex color
+
+    # other materials
     _create_material("flat_color", "mvp_flat_color")
     _create_material("flat_color_uniform", "mvp_flat_color_uniform")
     _create_material("time_color", "mvp_time_color")
-    _create_material("texture_uniform_color", "mvp_texture_uniform_color")
+    textured_material = _create_material("texture_uniform_color", "mvp_texture_uniform_color")
     _create_material("texture_vertex_color", "mvp_texture_vertex_color")
     _create_material("flat_color_uniform_far_clipped", "mvp_flat_color_uniform_far_clipped")
     _create_material("texture_color", "mvp_texture_color")
@@ -118,6 +124,31 @@ def _create_materials():
     _create_material("light_direction_color", "mvp_light_direction_color")
     _create_material("light_specular", "mvp_light_specular")
 
+    # we want to be able to have 'instances' of 'materials'
+    # i.e to have specific uniforms for them
+
+    # let's start having a diffuse red and a diffuse green
+    # should they use intenally the same opengl program?
+    # we need our shader manager to create different shader programs id using the same source
+    red_diffuse_material = _create_material("red_diffuse", "flat_color_diffuse")
+    green_diffuse_material = _create_material("green_diffuse", "flat_color_diffuse")
+    # _create_material("red_diffuse", "flat_color_diffuse")
+
+    # configure materials
+    red_diffuse_material.use()
+    red_diffuse_material.set_uniform("color", [1.0, 0, 0])
+
+    green_diffuse_material.use()
+    green_diffuse_material.set_uniform("color", [0.0, 1.0, 0])
+
+    texture1 = Texture.from_image("img/ash_uvgrid01.jpg")
+    # self.texture2 = Texture.from_image("img/wall.jpg")
+    # self.texture3 = Texture.from_image("img/awesomeface.png")
+    textured_material.use()
+    texture1.bind(0)
+    textured_material.set_uniform("texture0", [0])
+
+
 def _create_material(name, shader_name):
     global _name_to_id
     global _id_to_name
@@ -126,11 +157,13 @@ def _create_material(name, shader_name):
     uuid = _get_uuid()
     _id_to_name[uuid] = name
     _name_to_id[name] = uuid
-    material = Material(shader_manager.get_from_name(shader_name))
+    # material = Material(shader_manager.get_from_name(shader_name))
+    material = Material(shader_manager.get_instance_from_name(shader_name))
     material.uuid = uuid
     material_gui = MaterialGUI(material)
     _materials[uuid] = material
     _nr_materials = _nr_materials + 1
+    return material
 
 # for now, returning just the id of material instance
 def _get_uuid():

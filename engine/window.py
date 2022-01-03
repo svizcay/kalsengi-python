@@ -29,7 +29,7 @@ from .components import MeshRenderer, Camera, Light, LightType, Rotate
 # from .camera import Camera
 
 from .base_mesh import BaseMesh, Triangle, Quad, Cube, Line, GizmoMesh
-from .texture import Texture
+# from .texture import Texture
 from .image import Image
 from .framebuffer import Framebuffer
 from . import VertexAttrib # this was defined in __init__.py
@@ -197,7 +197,7 @@ class Window:
         # triangle = Triangle(VertexAttrib.UV | VertexAttrib.COLOR)
 
         # # # setting up textures
-        self.texture1 = Texture.from_image("img/ash_uvgrid01.jpg")
+        # self.texture1 = Texture.from_image("img/ash_uvgrid01.jpg")
         # self.texture2 = Texture.from_image("img/wall.jpg")
         # self.texture3 = Texture.from_image("img/awesomeface.png")
 
@@ -210,7 +210,7 @@ class Window:
         # texture_renderer = cube_go.get_component(MeshRenderer)
         # texture_renderer.shader.use()
         # uv_shader.use()
-        self.texture1.bind()
+        # self.texture1.bind()
         # texture_renderer.set_uniform("texture0", 0)
         # uv_material.set_uniform("texture0", 0)
         # self.texture2.bind(1)

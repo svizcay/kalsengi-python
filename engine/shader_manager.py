@@ -96,6 +96,20 @@ def get_from_name(name:str):
     else:
         raise ArgumentError("shader name {} not found".format(name))
 
+def get_instance_from_name(name:str):
+    # similat to get_from_name but it will create a new instance
+    # of a shader program
+    global _name_to_id
+    global _nr_shaders
+    global _shaders
+    if name in _name_to_id:
+        shader_id = _name_to_id[name]
+        template_shader = _shaders[shader_id]
+        alias = name + str(_nr_shaders + 1)
+        files = template_shader.files()
+        shader = _load_shader(alias, *files)
+        return shader
+
 def get_from_id(shader_id:int):
     global _shaders
     if shader_id in _shaders:
@@ -212,6 +226,13 @@ def _load_shaders():
     #     "engine/shaders/fragment/texture_vertex_color.glsl"
     # )
 
+    # flat color diffuse shader
+    _load_shader(
+        "flat_color_diffuse",
+        "engine/shaders/vertex/mvp_light.glsl",
+        "engine/shaders/fragment/flat_color_diffuse.glsl"
+    )
+
     # testing world space color
     _load_shader(
         "world_space_color",
@@ -269,6 +290,7 @@ def _load_shader(alias, *files):
         _name_to_id[alias] = shader_id
         _shaders[shader_id] = shader
         _nr_shaders = _nr_shaders + 1
+        return shader
     else:
         raise ArgumentError("shader alias {} already defined".format(alias))
 

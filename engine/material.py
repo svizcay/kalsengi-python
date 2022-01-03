@@ -58,6 +58,9 @@ class Material:
             uniform["loc"] = loc
             uniform["type"] = type_
             uniform["size"] = size
+            uniform["dirty"] = True # it tells use whether we have actually call glUniform with the value while having the shader active
+            # we need to give uniforms a default value
+            # uniform["value"] = default_based_on_type
 
             if (not type_ in gl_uniform_type_to_function):
                 print("type {} has not been added yet to gl_uniform_type_to_function".format(type_))
@@ -111,6 +114,19 @@ class Material:
 
     def use(self):
         self.shader.use()
+        # apply uniform changes that were requested
+        # while the material was not being used
+        for uniform_name in self.uniforms:
+            if self.uniforms[uniform_name]["dirty"] and "value" in self.uniforms[uniform_name]:
+                self.set_uniform(uniform_name, self.uniforms[uniform_name]["value"])
+
+    # we need a method for callbacks to use with gui widgets
+    # that "set uniform values" but those are not apply (call to glUniform)
+    # until the next time we use the material
+    def set_value(self, uniform_name, list_of_values):
+        if (uniform_name in self.uniforms):
+            self.uniforms[uniform_name]["value"] = list_of_values
+            self.uniforms[uniform_name]["dirty"] = True
 
     # general method for setting uniforms.
     # shader program needs to be bound.
@@ -123,6 +139,7 @@ class Material:
             uniform_type = self.uniforms[uniform_name]["type"]
             self.uniforms[uniform_name]["value"] = list_of_values
             self.uniforms[uniform_name]["fun"](loc, *list_of_values)
+            self.uniforms[uniform_name]["dirty"] = False
         else:
             if verbose:
                 print("uniform {} not found in shader".format(uniform_name))

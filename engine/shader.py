@@ -24,6 +24,9 @@ class Shader:
 
         self._compile(vertex_src, fragment_src, *additional_shaders)
 
+    def files(self):
+        return [self.vertex_file, self.fragment_file]
+
     @classmethod
     # mandatory parameters: vertex and fragment shaders
     def from_file(cls, vertex_file, fragment_file, *additional_shaders):
