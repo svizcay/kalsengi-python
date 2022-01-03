@@ -10,6 +10,10 @@
 # using numpy instead
 import numpy as np
 import pyassimp as assimp
+import pickle
+
+# for paths (python 3.5)
+from pathlib import PurePath
 
 # for creating VBO and VAO
 import OpenGL.GL as gl
@@ -75,7 +79,9 @@ class BaseMesh():
             print("whole data (before numpy cast): {}".format(vertex_data))
         # cast to numpy array
         # let's cast only the whole vertex_data buffer and not the individual attribs
-        vertex_data = np.array(vertex_data, dtype=np.float32)
+        # self.vertex_data is the numpy version of the data ready to be
+        # transfered to the GPU
+        self.vertex_data = np.array(vertex_data, dtype=np.float32)
         if verbose:
             print("whole data (after numpy cast): {}".format(vertex_data))
 
@@ -123,7 +129,6 @@ class BaseMesh():
         # normals = np.array(normals, dtype=np.float32)
         # colors = np.array(colors, dtype=np.float32)
 
-
         # print("vertices: {}".format(vertices))
         # print("uvs: {}".format(uvs))
         # print("normals: {}".format(normals))
@@ -133,6 +138,14 @@ class BaseMesh():
         # for key in self.attribs_offset:
         #     print("{} offset = {}".format(key, self.attribs_offset[key]))
 
+        self.indexed_drawing = False if indices is None else True
+        self.nr_indices = 0 if indices is None else len(indices)
+        # data ready to be transfer to GPU
+        self.indices = None if indices is None else np.array(indices, dtype=np.uint32)
+
+        self.configure_opengl_buffers()
+
+    def configure_opengl_buffers(self):
         # this only ask the gpu for an id
         # it doesn't allocate any memory.
         # gpu doesn't know yet how much space is needed.
@@ -152,31 +165,24 @@ class BaseMesh():
         # GL_UNIFORM_BUFFER
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.vbo)
 
-        # print("vertex data size in bytes = {}".format(vertex_data.nbytes))
-
         # for whole vertex data (using a single vbo)
         gl.glBufferData(
             gl.GL_ARRAY_BUFFER,
-            vertex_data.nbytes, # size in bytes (using numpy data structure)
-            vertex_data,        # pointer to the actual data
+            self.vertex_data.nbytes, # size in bytes (using numpy data structure)
+            self.vertex_data,        # pointer to the actual data
             gl.GL_STATIC_DRAW      # usage: it depends on the usage where the chunk of memory in gpu is going to be allocated
         )
 
-        self.indexed_drawing = False
-
-        # element buffer object
-        if (indices is not None):
-            self.indexed_drawing = True
+        if self.indexed_drawing:
             self.ebo = gl.glGenBuffers(1)
-            self.nr_indices = len(indices)
-            indices = np.array(indices, dtype=np.uint32)
             gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self.ebo)
             gl.glBufferData(
                 gl.GL_ELEMENT_ARRAY_BUFFER,
-                indices.nbytes,
-                indices,
+                self.indices.nbytes,
+                self.indices,
                 gl.GL_STATIC_DRAW
             )
+
 
     @property
     def nr_vertices(self):
@@ -206,6 +212,20 @@ class BaseMesh():
         if self.indexed_drawing:
             # print("binding ebo")
             gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self.ebo)
+
+    def save(self, filename):
+        # use pickle to dump mesh data into a binary file we understand
+        with open(filename, "wb") as output_file:
+            pickle.dump(self, output_file, pickle.HIGHEST_PROTOCOL)
+
+    @classmethod
+    def from_imported_file(cls, filename):
+        with open(filename, "rb") as input_file:
+            mesh_instance = pickle.load(input_file)
+            mesh_instance.configure_opengl_buffers()
+            # configure opengl vbos
+
+            return mesh_instance
 
     @classmethod
     def from_file(cls, filename, verbose=False):
@@ -294,6 +314,17 @@ class BaseMesh():
         mesh_instance = cls(vertices, uvs=uvs ,normals=normals ,colors=colors, indices=indices, verbose=verbose)
 
         assimp.release(asset)
+
+        # if we succesfully loaded the mesh with assimp, we should try
+        # to save the imported asset as binary so we can re-use it later using pickle
+        asset_file = PurePath(filename)
+        # extract only the file name if dragon.fbx -> dragon
+        # extract the parent directory
+        parent_dir = asset_file.parent
+        asset_name = asset_file.stem + ".pkl" # the name dragon.fbx with no extension
+        pkl_file = parent_dir.joinpath(asset_name)
+        # print("dir={}\t asset={}\t file={}".format(parent_dir, asset_name, pkl_file))
+        mesh_instance.save(pkl_file)
 
         # return cls(parameters)
         return mesh_instance

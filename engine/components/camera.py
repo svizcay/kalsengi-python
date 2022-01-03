@@ -1,27 +1,13 @@
 import pyrr
 
-from .component import Component
-# from .transform import Transform
-# we are having issues trying to reference a module from a parent directory.
-# in anyway, it seems that as lons as we don't instantiate an object of a class
-# we can use a class without imporing it (python dynamic typing)
-# from engine import Transform # for parent directory
+# i think it's a better practise to use absolute import path
+# from .component import Component
+from engine.components.component import Component
+from engine.gui.camera_gui import CameraGUI
 
-
-# camera is a component.
-# clients should not construct components by themselves
-# they can only 'add' them to gameObjects, i.e. the component's transform
-# it's take from the gameObject.
-# the component needs to belong to a gameObject as well
-
-# maybe this is not the right way to import the module
-# this is considered an absolute import and python will try to do it right away
-# given that we are passing a package (engine.gui) python will import everything from the init file
-# from engine.gui import CameraGUI
-import engine.gui.camera_gui as camera_gui
+# as a Component, this Camera needs to be added to some game object.
 
 class Camera(Component):
-
 
     # we would like to have the right values for aspect ratio
     # and we dont want to pass them explicitly
@@ -39,7 +25,6 @@ class Camera(Component):
     # we should treat the aspect ratio differently
     # and make sure it's always right with the size of the rendering viewport
     def __init__(self, game_object, aspect_ratio = 16/9):
-        print("camera ctor parameters go={}, aspect_ratio={}".format(game_object, aspect_ratio))
         super().__init__(game_object)
 
         self._vfov = 60
@@ -50,15 +35,9 @@ class Camera(Component):
         self.clear_color = (0.705, 0.980, 0.992) # light blue
 
         # whenever we have a class that inherits from Component
-        # and we DO have a valid component gui, then set it
-        # self.gui = CameraGUI(self)
-        self.gui = camera_gui.CameraGUI(self)
+        # and we DO have a valid component gui implemented, then set it
+        self.gui = CameraGUI(self)
         self.name = "camera"
-
-        # we dont have direct access to the internal transform
-        # we are going to provide some utilities to set the camera
-        # pos/orientation and then update the transform and view matrix
-        # accordingly
 
         # shortcut for now
         self.transform = self.game_object.transform
@@ -87,21 +66,25 @@ class Camera(Component):
     def vfov(self, value):
         self._vfov = value
         self._projection_dirty = True
+        self._view_projection_dirty = True
 
     @aspect_ratio.setter
     def aspect_ratio(self, value):
         self._aspect_ratio = value
         self._projection_dirty = True
+        self._view_projection_dirty = True
 
     @near.setter
     def near(self, value):
         self._near = value
         self._projection_dirty = True
+        self._view_projection_dirty = True
 
     @far.setter
     def far(self, value):
         self._far = value
         self._projection_dirty = True
+        self._view_projection_dirty = True
 
     # public api (getters)
     @property
@@ -109,6 +92,20 @@ class Camera(Component):
         if (self._projection_dirty):
             self._set_projection_matrix()
         return self._projection
+
+    @property
+    def view_projection(self):
+        if self.view_projection_dirty:
+            # using the property getters to get up to date values
+            # and to update dirty flags on the way
+            self._view_projection = pyrr.matrix44.multiply(
+                self.transform.view_mat, self.projection
+            )
+        return self._view_projection
+
+    @property
+    def view_projection_dirty(self):
+        return self._projection_dirty or self.transform.view_dirty
 
     def look_at(self, eye, center, up):
         pass

@@ -4,7 +4,7 @@ from engine.scene import Scene
 from engine.game_object import GameObject
 from engine import material_manager
 from engine.components import Camera, Light, LightType, MeshRenderer
-from engine.base_mesh import Cube
+from engine.base_mesh import BaseMesh, Cube
 
 class ExampleScene(Scene):
 
@@ -36,7 +36,9 @@ class ExampleScene(Scene):
         # blender_quad_mesh = BaseMesh.from_file("models/xyzrgb_dragon/xyzrgb_dragon.obj", False)
         # blender_quad_mesh = BaseMesh.from_file("models/primitives/plane_vertices.obj", False)
         # blender_quad_mesh = BaseMesh.from_file("models/suzanne/suzanne.fbx", False)
-        blender_quad_mesh = Cube()
+        # blender_quad_mesh = Cube()
+        # blender_quad_mesh = BaseMesh.from_imported_file("test.pkl")
+        blender_quad_mesh = BaseMesh.from_imported_file("models/xyzrgb_dragon/xyzrgb_dragon.pkl")
         default_material = material_manager.get_from_name("light_specular")
 
         ########################################################################

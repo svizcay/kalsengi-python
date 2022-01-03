@@ -137,12 +137,18 @@ class Scene:
             for game_obj in game_objects_per_material[material]:
                 for component in game_obj.components:
                     if isinstance(component, MeshRenderer):
+
+                        # mvp = pyrr.matrix44.multiply(
+                        #     pyrr.matrix44.multiply(
+                        #         game_obj.transform.model_mat,
+                        #         camera.transform.view_mat),
+                        #     camera.projection)
+
                         mvp = pyrr.matrix44.multiply(
-                            pyrr.matrix44.multiply(
-                                game_obj.transform.model_mat,
-                                camera.transform.view_mat),
-                            camera.projection)
-                        mpv = pyrr.matrix44.create_identity()
+                            game_obj.transform.model_mat,
+                            camera.view_projection
+                        )
+
                         material.set_matrix("mvp", mvp)
                         material.set_matrix("model", game_obj.transform.model_mat)
                         material.set_uniform("camera_pos", camera.transform.position)

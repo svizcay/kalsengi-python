@@ -27,7 +27,7 @@ class Transform:
         # if we are not going to keep track of euler angles, maybe we should not store them
         # self._local_euler_angles = euler_angles if euler_angles is not None else pyrr.Vector3([0, 0, 0])
         # identity quaternion = (1,0,0,0)
-        # note that that is the resulting quaternion after applying cos/sin etc.
+        # note that the identity quaternion is the resulting quaternion after applying cos/sin etc.
         # to get it, we multiply the rotations obtained from 0 degrees along x direction; 0 along y and 0 along z
         self._local_rotation = Transform.quaternion_from_euler(euler_angles)  if euler_angles is not None else [1, 0, 0, 0]
         self._local_scale = scale if scale is not None else pyrr.Vector3([1, 1, 1])
@@ -48,13 +48,17 @@ class Transform:
         # but they are actually read by clients of this class
         # we are going to disable them by now.
         # they are going to be use only when we cache final model and view matrices
-        # let's do this later. it's taking to long.
+        # let's do this later. it's taking too long.
         # we need to do it at some point though!!
+        # maybe this are not direct boolean flags but properties that need to check more things
+        # in order to say if the matrix is dirty or not
         # self._model_dirty = True    # they get dirty when either local model matrix changed or when parent's model changed
         # self._view_dirty = True
         # local versions. do we actually need to local view??
         self._local_model_dirty = True
         self._local_view_dirty = True
+
+        self._ws_position_needs_update = True
 
         # directions
         # in unity they read/write but let's make them read-only for the moment.
@@ -85,14 +89,29 @@ class Transform:
     @property
     def position(self):
         # we need to think whether we are going to cache the global position
-        # or if we are going to calculate it every time based "updated" values
-        # for now, let's go for the second.
+        # or if we are going to calculate it every time using "updated" values
+        # for now, let's go for the second -> working on that now
         # how expensive is to 'get' the parent model_mat? should we also cache it?
-        model_matrix = self.parent.model_mat if self.parent is not None else pyrr.matrix44.create_identity()
+        if self._position_dirty: # this is now checking for the parent and the changes in local_pos
+            parent_model_matrix = self.parent.model_mat if self.parent is not None else pyrr.matrix44.create_identity()
+            self._position = pyrr.Vector3(pyrr.matrix44.apply_to_vector(parent_model_matrix, self._local_position))
+            self._ws_position_needs_update = False
+        return self._position
         # it's more convenient to return a pyrr.Vector3 object so we can access x,y,z
         # the problem here is we are creating a new object every time we read this value
         # we should totally work in caching the result
-        return pyrr.Vector3(pyrr.matrix44.apply_to_vector(model_matrix, self._local_position))
+
+    # rather than having a real flag, we are going to use a property
+    # to determine whether the global position is diry or not
+    @property
+    def _position_dirty(self):
+        # global position depends on the parent's model matrix * local position vector.
+        # _local_position has always the right value
+        # therefore, we just need to check for parent model matrix dirty "flag" (property)
+        parent_dirty = self.parent.model_dirty if self.parent is not None else False
+        # we also need a mechanism to know if the _local_positon was changed or not
+        return parent_dirty or self._ws_position_needs_update
+
 
     # in which cases we would like to get the rotation (in quaternion) of a gameObject?
     # a) when we want to get poses and then interpolate between them
@@ -223,6 +242,11 @@ class Transform:
         self._local_model_dirty = True
         self._local_view_dirty = True
 
+        # we need to add an extra flag so the world space position can check for changes in this
+        # when it's going to be set to False?
+        # better to rename it to the purpose is going to fulfill
+        self._ws_position_needs_update = True
+
     # we were calling 'rotation' the euler angles
     # should we allow this setter?
     # yes, the 'inspector' can work based on these values
@@ -312,19 +336,39 @@ class Transform:
         # if (self._model_dirty): # <- this means that whenever we change the local transform, we need to dirty our children's model matrices
         #     self._update_model_matrix()
         # return
-        model_matrix = self.parent.model_mat if self.parent is not None else pyrr.matrix44.create_identity()
-        # we use the property to access the local model matrix in case is dirty
-        return pyrr.matrix44.multiply(self.local_model_mat, model_matrix)
+        if self.model_dirty: # propery that checks for parent and local dirty flags
+            # this is making sure we are obtaining the last version of the parent model matrix
+            # by asking the parent for its model matrix, we are also making sure he updates its dirty flag
+            parent_model_matrix = self.parent.model_mat if self.parent is not None else pyrr.matrix44.create_identity()
+            # we are using the property to access the local model matrix also to make sure we are
+            # getting the most up to date and that its dirty flag is set accordingly
+            self._model_mat = pyrr.matrix44.multiply(self.local_model_mat, parent_model_matrix)
+        return self._model_mat
+
+    # rather than having a _model_dirty flag, we are going to have a property
+    @property
+    def model_dirty(self):
+        # model matrix is dirty when the parent is dirty or when the local model is dirty
+        parent_dirty = self.parent.model_dirty if self.parent is not None else False
+        return parent_dirty or self._local_model_dirty
 
     # this is the final view matrix
     # final view matrix = parent_view * local_view
     @property
     def view_mat(self):
-        view_matrix = self.parent.view_mat if self.parent is not None else pyrr.matrix44.create_identity()
+        if self.view_dirty:
+            parent_view_matrix = self.parent.view_mat if self.parent is not None else pyrr.matrix44.create_identity()
+            self._view_mat = pyrr.matrix44.multiply(self.local_view_mat, parent_view_matrix)
         # we use the property to access the local view matrix in case is dirty
-        return pyrr.matrix44.multiply(self.local_view_mat, view_matrix)
+        return self._view_mat
         # debugging
         # return self.local_view_mat
+
+    @property
+    def view_dirty(self):
+        # view matrix is dirty when the parent view is dirty or when the local view is dirty
+        parent_dirty = self.parent.view_dirty if self.parent is not None else False
+        return parent_dirty or self._local_view_dirty
 
     @property
     def local_model_mat(self):
