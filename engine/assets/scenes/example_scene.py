@@ -16,7 +16,7 @@ class ExampleScene(Scene):
         ########################################################################
         # CREATE GAME OBJECTS
         ########################################################################
-        # monkey_go = GameObject("monkey")
+        monkey_go = GameObject("monkey")
         # dragon_go = GameObject("dragon")
         # plane_go = GameObject("floor")
         # cube_go = GameObject("cube")
@@ -38,7 +38,11 @@ class ExampleScene(Scene):
         # blender_quad_mesh = BaseMesh.from_file("models/suzanne/suzanne.fbx", False)
         # blender_quad_mesh = Cube()
         # blender_quad_mesh = BaseMesh.from_imported_file("test.pkl")
+        # monkey_mesh = BaseMesh.from_file("models/suzanne/suzanne.fbx", True)
+        monkey_mesh = BaseMesh.from_imported_file("models/suzanne/suzanne.pkl")
         blender_quad_mesh = BaseMesh.from_imported_file("models/xyzrgb_dragon/xyzrgb_dragon.pkl")
+
+        diffuse_material = material_manager.get_from_name("light_direction_color")
         default_material = material_manager.get_from_name("light_specular")
 
         ########################################################################
@@ -51,7 +55,6 @@ class ExampleScene(Scene):
         # redenderers now should not take shaders direclty BUT MATERIALS
         # plane_go.add_component(MeshRenderer, plane_mesh, flat_color_shader)
         # cube_go.add_component(MeshRenderer, cube_mesh, texture_shader)
-        # monkey_go.add_component(MeshRenderer, monkey_mesh, texture_shader)
         # # dragon_go.add_component(MeshRenderer, dragon_mesh, texture_shader)
         # self.gizmo_renderer = MeshRenderer(
         #     None,
@@ -63,6 +66,7 @@ class ExampleScene(Scene):
         game_camera.add_component(Camera, 16.0 / 9.0)
         # blender_quad.add_component(Rotate)
         light.add_component(Light, LightType.DIRECTIONAL)
+        monkey_go.add_component(MeshRenderer, monkey_mesh, diffuse_material)
         blender_quad.add_component(MeshRenderer, blender_quad_mesh, default_material)
 
         ########################################################################
@@ -73,8 +77,8 @@ class ExampleScene(Scene):
         game_camera.transform.local_position = pyrr.Vector3([0, 1, 2.5])
         game_camera.transform.local_euler_angles = pyrr.Vector3([-20, 0, 0])
         # set initial transforms
-        # monkey_go.transform.local_position = pyrr.Vector3([0, 3, 0])
-        # monkey_go.transform.local_euler_angles = pyrr.Vector3([270, 0, 0])
+        monkey_go.transform.local_position = pyrr.Vector3([0, 5, 0])
+        monkey_go.transform.local_euler_angles = pyrr.Vector3([270, 0, 0])
         # plane_go.transform.local_euler_angles = pyrr.Vector3([270, 0, 0])
         # plane_go.transform.local_scale = pyrr.Vector3([10,10,10])
         # cube_go.transform.local_position = pyrr.Vector3([0, 0.5, 0])
@@ -84,7 +88,7 @@ class ExampleScene(Scene):
         # ADD GAME OBJECTS TO THE SCENE
         ########################################################################
         # self.scene.add_game_object(dragon_go)
-        # self.scene.add_game_object(monkey_go)
+        self.add_game_object(monkey_go)
         # self.scene.add_game_object(plane_go)
         # self.scene.add_game_object(cube_go)
         self.add_game_object(blender_quad)
