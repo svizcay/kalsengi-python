@@ -115,79 +115,25 @@ class Material:
     # general method for setting uniforms.
     # shader program needs to be bound.
     # for setting matrices, use set_matrix
-    def set_uniform(self, uniform_name, *uniform_values):
+    # we expect the values as a python list
+    def set_uniform(self, uniform_name, list_of_values, verbose=False):
         if (uniform_name in self.uniforms):
             loc = self.uniforms[uniform_name]["loc"]
             # type is not needed anymore
             uniform_type = self.uniforms[uniform_name]["type"]
-            self.uniforms[uniform_name]["value"] = uniform_values
-            # make sure program is in use before setting uniform value
-            # self.shader.use()
-            set_uniform(uniform_type, loc, *uniform_values)
-            # self.uniforms[uniform_name]["fun"](loc, *uniform_values)
+            self.uniforms[uniform_name]["value"] = list_of_values
+            self.uniforms[uniform_name]["fun"](loc, *list_of_values)
         else:
-            print("uniform {} not found in shader".format(uniform_name))
+            if verbose:
+                print("uniform {} not found in shader".format(uniform_name))
 
-    # no need to pack/unpack to call it
-    # we should compare the speed with the previous way
-    # to see if it's better to not pack/unpack multiple times
-    # and also to see if we save some times
-    # having the function pointer more directly
-    # this didn't turned out to be so much faster but still a bit better.
-    # actually it is considerable much faster.
-    # the problem with the measurement was that i was creating an indentity matrix each time.
-    # now the question is, how much faster would it be if i call the right glUniform function right away?
-    def set_matrix(self, uniform_name, matrix):
+    def set_matrix(self, uniform_name, matrix, verbose=False):
         if (uniform_name in self.uniforms):
             loc = self.uniforms[uniform_name]["loc"]
-            self.uniforms[uniform_name]["fun"](loc, 1, gl.GL_FALSE, *matrix)
-
-    # performance is practically the same with set_matrix
-    def set_matrix_direct(self, uniform_name, matrix):
-        if (uniform_name in self.uniforms):
-            loc = self.uniforms[uniform_name]["loc"]
-            gl.glUniformMatrix4fv(loc, 1, gl.GL_FALSE, *matrix)
-
-    # right now set_uniform is grouping uniform values
-    # into a single array (they get packed)
-    # and therefore, to call this method, whenever we have a list of parameters,
-    # we need to unpack them.
-    # this is very inefficient
-    # let's always receive an array and if the value is only one,
-    # the caller should have to wrap it into an array
-    def set_only_uniform(self, uniform_name, *uniform_values):
-        if (uniform_name in self.uniforms):
-            loc = self.uniforms[uniform_name]["loc"]
-            uniform_type = self.uniforms[uniform_name]["type"]
-            self.uniforms[uniform_name]["value"] = uniform_values
-            # make sure program is in use before setting uniform value
-            # self.shader.use()
-            set_uniform(uniform_type, loc, *uniform_values)
-
-    # we are going to use this method for the mvp matrices
-    def set_only_uniform2(self, uniform_name, uniform_values):
-        if (uniform_name in self.uniforms):
-            loc = self.uniforms[uniform_name]["loc"]
-            uniform_type = self.uniforms[uniform_name]["type"]
-            self.uniforms[uniform_name]["value"] = uniform_values
-            # make sure program is in use before setting uniform value
-            # self.shader.use()
-            # set_uniform2(uniform_type, loc, uniform_values)
-
-            # this turned to be a faster method of
-            # calling the apporpiate glUniform function
-            # for setting matrices, we can not just expand the list of values
-            # we also need to say if it's transpose and the nr of matrices
-            self.uniforms[uniform_name]["fun"](loc, *uniform_values)
-
-
-
-            # debugging, we are calling this just for the vec3
-            # until here, we are okay
-            # gl.glUniform3f(loc, *values)
-            # calling a method is find...but calling a function
-            # from gl_uniform module is very expensive somehow
-            # self.test(loc, uniform_values)
-
-    def test(self, loc, values):
-        gl.glUniform3f(loc, *values)
+            # NOTE: when passing matrix to glUniformMatrix4fv (vector form)
+            # we don't need to unpack it
+            self.uniforms[uniform_name]["fun"](loc, 1, gl.GL_FALSE, matrix)
+            # gl.glUniformMatrix4fv(loc, 1, gl.GL_FALSE, matrix)
+        else:
+            if verbose:
+                print("uniform {} not found in shader".format(uniform_name))
