@@ -22,7 +22,9 @@
 from engine.material import Material
 from engine import shader_manager
 from engine.gui.material_gui import MaterialGUI
-from engine.texture import Texture
+# from engine.texture import Texture
+
+from engine import texture_manager
 
 # internal attributes
 _nr_materials = 0
@@ -154,11 +156,14 @@ def _create_materials():
     green_diffuse_material.set_uniform("color", [0.0, 1.0, 0])
 
     # i should have a texture manager
-    texture1 = Texture.from_image("img/ash_uvgrid01.jpg")
-    texture2 = Texture.from_image("img/wall.jpg")
-    texture3 = Texture.from_image("img/awesomeface.png")
-
-    low_poly_texture = Texture.from_image("img/ImphenziaPalette02-Albedo.png")
+    # texture1 = Texture.from_image("img/ash_uvgrid01.jpg")
+    texture1 = texture_manager.get_from_name("uv_grid")
+    texture2 = texture_manager.get_from_name("wall")
+    texture3 = texture_manager.get_from_name("smile")
+    low_poly_texture = texture_manager.get_from_name("color_palette")
+    # texture2 = Texture.from_image("img/wall.jpg")
+    # texture3 = Texture.from_image("img/awesomeface.png")
+    # low_poly_texture = Texture.from_image("img/ImphenziaPalette02-Albedo.png")
 
     textured_material.use()
     textured_material.set_texture("texture0", texture1, 0)

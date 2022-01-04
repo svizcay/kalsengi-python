@@ -141,6 +141,8 @@ class Material:
     # this is intended to be called once during setup
     # and then we will bind the appropiate textures when we use the material
     # when calling this method, make sure the program/material is in use
+    # NOTE: rather than "setting" this method is "adding" textures.
+    # we need some in the direction of "replacing"
     def set_texture(self, uniform_name, texture, texture_unit):
         entry = {}
         entry["name"] = uniform_name
@@ -148,7 +150,26 @@ class Material:
         entry["unit"] = texture_unit
         self.textures.append(entry)
         # setting the uniform only needs to be done once
+        # actually we need to store this change for later
+        # or offer an api to do it later
         self.set_uniform(uniform_name, [texture_unit], True)
+
+    # when we choose a texture from a combo box
+    # what do i need to switch textures?
+    # - we need to wait for the next 'use'.
+    # - when we are told to use a texture for some uniform
+    # remember the way textures were set initially:
+    # - material.use()
+    # - material.set_texture("texture0", low_poly_texture, texture_unit=0)
+    # when we set a <texture> for an uniform, how do we know the texture_unit?
+    # do we need to change the texture unit?
+    # a) no, we can keep it. then basically, to set a texture, we just need the uniform
+    # and the texture itself
+    # we don't update nor the uniform nor the texture unit that we were using!
+    def replace_texture(self, uniform_name, texture):
+        for texture_entry in self.textures:
+            if texture_entry["name"] == uniform_name:
+                texture_entry["texture"] = texture
 
 
 

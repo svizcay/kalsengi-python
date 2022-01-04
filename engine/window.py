@@ -43,6 +43,7 @@ from engine.assets.scenes.example_scene import ExampleScene # this also worked (
 
 from . import shader_manager # no need to rename it to the same
 from . import material_manager
+from engine import texture_manager
 # from . import shader_manager as shader_manager
 
 from .gui import TransformGUI
@@ -179,7 +180,8 @@ class Window:
         self.use_imgui = True
 
         # initialize singletone modules
-        shader_manager.init()
+        shader_manager.init()   # before material manager
+        texture_manager.init()  # before material manager
         material_manager.init()
 
         # SCENE BEGIN

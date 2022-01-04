@@ -2,6 +2,7 @@ import imgui
 import OpenGL.GL as gl
 
 from .component_gui import ComponentGUI
+from engine import texture_manager
 
 class MaterialGUI:
 
@@ -54,7 +55,6 @@ class MaterialGUI:
 
     def _draw_uniform_entry(self, uniform:dict):
         if not uniform["name"].startswith("_"):
-            imgui.text("{} type={}".format(uniform["name"], uniform["type"]))
             type_ = uniform["type"]
 
             # draw the right widget based on the type of uniform
@@ -97,6 +97,37 @@ class MaterialGUI:
                     if changed:
                         self.material.set_value(uniform["name"], [value])
                 # otherwise just draw a float input
+            elif type_ == gl.GL_SAMPLER_2D:
+                # list all available textures
+                # showing combobox with list of materials
+                available_textures = texture_manager.get_textures_ids()
+                texture_values = [tex[1] for tex in available_textures]
+
+                # get the current texture used in the material for that texture sampler
+                # current_texture_uuid = texture_manager.get_texture_id_by_ref(self.mesh_renderer.material)
+                current_texture = None
+                if self.material.textures is not None:
+                    for texture_entry in self.material.textures:
+                        if texture_entry["name"] == uniform["name"]:
+                            current_texture = texture_entry["texture"]
+                            break
+                current_texture_uuid = 0 if current_texture is None else current_texture.uuid
+
+                current_texture_selected_index = None
+                for idx, (uuid, _) in enumerate(available_textures):
+                    if uuid == current_texture_uuid:
+                        current_texture_selected_index = idx
+
+                changed, opt_index = imgui.combo(uniform["name"], current_texture_selected_index, texture_values)
+                if changed:
+                    selected_uuid,_ = available_textures[opt_index]
+                    selected_texture = texture_manager.get_from_id(selected_uuid)
+                    self.material.replace_texture(uniform["name"], selected_texture)
+                    # self.mesh_renderer.material = engine.material_manager.get_from_id(selected_uuid)
+            else:
+                # we don't have a widget for that type.
+                # just display the info
+                imgui.text("{} type={}".format(uniform["name"], uniform["type"]))
 
     def _draw_vertex_attrib_entry(self, vertex_attrib:dict):
         imgui.text("{} type={} size={}".format(vertex_attrib["name"], vertex_attrib["type"], vertex_attrib["size"]))

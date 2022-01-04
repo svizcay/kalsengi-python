@@ -14,6 +14,7 @@ class Texture:
         self.client_format = client_format
         self._create_texture()
         self._transfer_data(data)
+        self.uuid = None
 
     @classmethod
     def from_image(cls, path_to_img):
