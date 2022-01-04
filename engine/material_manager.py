@@ -116,11 +116,13 @@ def _create_materials():
     _create_material("flat_color", "mvp_flat_color")
     _create_material("flat_color_uniform", "mvp_flat_color_uniform")
     _create_material("time_color", "mvp_time_color")
+
     textured_material = _create_material("texture_uniform_color", "mvp_texture_uniform_color")
     unlit_low_poly_material = _create_material("unlit low_poly", "mvp_texture_uniform_color")
     low_poly_material = _create_material("low_poly", "texture_color_diffuse")
 
     phong_color_material = _create_material("phong_color", "phong_uniform_color")
+    phong_texture_material = _create_material("phong_texture", "phong_texture_uniform_color")
 
     _create_material("texture_vertex_color", "mvp_texture_vertex_color")
     grid_material = _create_material("flat_color_uniform_far_clipped", "mvp_flat_color_uniform_far_clipped")
@@ -173,6 +175,11 @@ def _create_materials():
     phong_color_material.use()
     phong_color_material.set_uniform("slider_0_1_reflectivity", [1.0])
     phong_color_material.set_uniform("slider_1_32_shine_damper", [32.0])
+
+    phong_texture_material.use()
+    phong_texture_material.set_uniform("slider_0_1_reflectivity", [1.0])
+    phong_texture_material.set_uniform("slider_1_32_shine_damper", [32.0])
+    phong_texture_material.set_texture("texture0", low_poly_texture, 0)
 
 
     grid_material.use()

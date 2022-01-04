@@ -2,21 +2,23 @@
 
 // by specifying layout, we don't need to query for location (but we need to know this order)
 layout(location=0) in vec3 pos;
-// layout(location=1) in vec2 uv;
+layout(location=1) in vec2 uv;
 layout(location=2) in vec3 normal;
 // layout(location=3) in vec3 color;
 
 uniform mat4 mvp;
 uniform mat4 model;
 uniform vec4 _light_pos;
+uniform vec3 _camera_pos;
 
 // out vec3 v2f_color;
-// out vec2 v2f_uv;
 
 // a light shader needs to forward the direction to the light source
 // and the normal of the vertex
 out vec3 v2f_to_light_ws;   // ws vector representing direction to light
 out vec3 v2f_normal_ws;    // ws normal
+out vec3 v2f_to_cam_ws;
+out vec2 v2f_uv;
 
 void main()
 {
@@ -39,12 +41,13 @@ void main()
     else
         v2f_to_light_ws = normalize(_light_pos.xyz - position_ws);
 
+    v2f_to_cam_ws = normalize(_camera_pos - position_ws);
     // for a point light (light_pos.w = 1)
     // direction to light is light.pos - pos_ws
     // v2f_to_light = light_pos.xyz - pos;
 
     // v2f_color = color;
-    // v2f_uv = uv;
+    v2f_uv = uv;
 
     // we need to trasnform the normal to a world space vector
     // and obtain the world space vector of the vector pointing to the light source
@@ -52,3 +55,4 @@ void main()
     // for now, let's just forward the direction in local space
     // light_pos.w is the flag for directional or point light
 }
+

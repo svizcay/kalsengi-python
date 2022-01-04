@@ -36,14 +36,15 @@ class OpenCVWebcamWindow(EditorWindow):
 
     def update(self):
         if self.open:
+
+            if self.vid is None:
+                self.vid = cv2.VideoCapture(0)
+
             ret, frame = self.vid.read()
             self.texture_webcam = Texture.from_opencv_mat(frame)
 
     def draw(self):
         if self.open and self.texture_webcam is not None:
-
-            if self.vid is None:
-                self.vid = cv2.VideoCapture(0)
 
             imgui.set_next_window_size(-1, -1)
             expanded, opened = imgui.begin(

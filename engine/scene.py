@@ -187,7 +187,7 @@ class Scene:
 
                         material.set_matrix("mvp", mvp)
                         material.set_matrix("model", game_obj.transform.model_mat)
-                        material.set_uniform("camera_pos", camera.transform.position)
+                        material.set_uniform("_camera_pos", camera.transform.position)
 
                         # if the material uses textures,
                         # we need to make sure they are bound at the right texture units.
@@ -202,7 +202,7 @@ class Scene:
                             # when passing uniforms, we need to treat the data as simple as possible
                             # i.e, rather than a pyrr.vector or python array, expand them
                             # to a comma separated invidual floats
-                            material.set_uniform("light_pos", self.light_sources[0].position)
+                            material.set_uniform("_light_pos", self.light_sources[0].position)
                             material.set_uniform("_light_color", self.light_sources[0].color)
 
                         # now we can ask the meshRenderer to draw the geometry

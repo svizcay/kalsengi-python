@@ -57,6 +57,7 @@ class ExampleScene(Scene):
         diffuse_material = material_manager.get_from_name("light_direction_color")
         default_material = material_manager.get_from_name("light_specular")
         phong_color_material = material_manager.get_from_name("phong_color")
+        phong_texture_material = material_manager.get_from_name("phong_texture")
 
         ########################################################################
         # ADD COMPONENTS
@@ -80,7 +81,7 @@ class ExampleScene(Scene):
         light.add_component(Light, LightType.DIRECTIONAL)
         monkey_go.add_component(MeshRenderer, monkey_mesh, red_diffuse_material)
         monkey_go2.add_component(MeshRenderer, monkey_mesh, green_diffuse_material)
-        monkey_go3.add_component(MeshRenderer, monkey_mesh, low_poly_material)
+        monkey_go3.add_component(MeshRenderer, monkey_mesh, phong_texture_material)
 
         # i can not pass key parameters to game_object.add_component()
         # monkey_go.add_component(Rotate, axis=pyrr.Vector3([0, 0, 1]))

@@ -13,7 +13,7 @@ out vec4 out_color;
 // uniform vec3 color;
 // uniform sampler2D texture0;
 // uniform sampler2D texture1;
-uniform vec3 light_color;
+uniform vec3 _light_color;
 
 // how much the surface reflect the incomming light
 uniform float reflectivity = 1.0f;  
@@ -39,7 +39,7 @@ void main()
         0
     );
     specular_factor = pow(specular_factor, shine_damper);
-    vec3 specular = (reflectivity * specular_factor) * light_color;
+    vec3 specular = (reflectivity * specular_factor) * _light_color;
     out_color = vec4(specular,1);//diffuse * base color
 }
 

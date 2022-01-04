@@ -13,7 +13,7 @@ out vec4 out_color;
 // uniform vec3 color;
 // uniform sampler2D texture0;
 // uniform sampler2D texture1;
-uniform vec3 light_color;
+uniform vec3 _light_color;
 
 void main()
 {
@@ -26,7 +26,7 @@ void main()
     );
     brightness = max(brightness, 0.0);
     // vec3 diffuse = brightness * vec3(1);// light_color
-    vec3 diffuse = brightness * light_color;// light_color
+    vec3 diffuse = brightness * _light_color;// light_color
     out_color = vec4(diffuse * vec3(1, 1, 1),1);//diffuse * base color
 
     // what if we get the fragment position here

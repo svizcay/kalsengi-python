@@ -9,7 +9,7 @@ in vec2 v2f_uv;
 out vec4 out_color;
 
 uniform sampler2D texture0;
-uniform vec3 light_color;
+uniform vec3 _light_color;
 
 void main()
 {
@@ -20,7 +20,7 @@ void main()
     );
     brightness = max(brightness, 0.0);
 
-    vec3 diffuse_light = brightness * light_color;// light_color
+    vec3 diffuse_light = brightness * _light_color;// light_color
     out_color = vec4(diffuse_light, 1) * texture(texture0, v2f_uv); // diffuse * object color
 }
 

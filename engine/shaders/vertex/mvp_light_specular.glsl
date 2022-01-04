@@ -8,8 +8,8 @@ layout(location=2) in vec3 normal;
 
 uniform mat4 mvp;
 uniform mat4 model;
-uniform vec4 light_pos;
-uniform vec3 camera_pos;
+uniform vec4 _light_pos;
+uniform vec3 _camera_pos;
 
 // out vec3 v2f_color;
 // out vec2 v2f_uv;
@@ -36,12 +36,12 @@ void main()
     // the ray from the light source,
     // therefore, the opposite direction is the
     // from the surface to the light source
-    if (light_pos.w == 0)
-        v2f_to_light_ws = -light_pos.xyz;
+    if (_light_pos.w == 0)
+        v2f_to_light_ws = -_light_pos.xyz;
     else
-        v2f_to_light_ws = normalize(light_pos.xyz - position_ws);
+        v2f_to_light_ws = normalize(_light_pos.xyz - position_ws);
 
-    v2f_to_cam_ws = normalize(camera_pos - position_ws);
+    v2f_to_cam_ws = normalize(_camera_pos - position_ws);
 
     // for a point light (light_pos.w = 1)
     // direction to light is light.pos - pos_ws

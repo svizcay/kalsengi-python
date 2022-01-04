@@ -278,6 +278,13 @@ def _load_shaders():
         "engine/shaders/fragment/phong_uniform_color.glsl"
     )
 
+    # phong (ambient + diffuse + specular) * uniform color * texture
+    _load_shader(
+        "phong_texture_uniform_color",
+        "engine/shaders/vertex/mvp_light_camera_uv.glsl",
+        "engine/shaders/fragment/phong_texture_uniform_color.glsl"
+    )
+
     # watchdog stuff
     # afet loading the shaders, we initialize the watchdog event handler
     # do i need event_handler to be in the global scope?
