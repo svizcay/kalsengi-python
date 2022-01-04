@@ -107,15 +107,25 @@ def _create_materials():
     _create_material("transform_gizmo", "mvp_vertex_color") # render using mvp matrix and vertex color
     _create_material("camera_gizmo", "mvp_flat_color_uniform") # render using mvp matrix and vertex color
 
+    # list of materials I want to have availabe
+    # - textured + tint color (uniform) + light diffuse
+    # - full phong (ambient + diffuse + specular) * texture color
+    # - pull phong with specularity comming from texture
+
     # other materials
     _create_material("flat_color", "mvp_flat_color")
     _create_material("flat_color_uniform", "mvp_flat_color_uniform")
     _create_material("time_color", "mvp_time_color")
     textured_material = _create_material("texture_uniform_color", "mvp_texture_uniform_color")
+    unlit_low_poly_material = _create_material("unlit low_poly", "mvp_texture_uniform_color")
+    low_poly_material = _create_material("low_poly", "texture_color_diffuse")
+
+    phong_color_material = _create_material("phong_color", "phong_uniform_color")
+
     _create_material("texture_vertex_color", "mvp_texture_vertex_color")
-    _create_material("flat_color_uniform_far_clipped", "mvp_flat_color_uniform_far_clipped")
+    grid_material = _create_material("flat_color_uniform_far_clipped", "mvp_flat_color_uniform_far_clipped")
     _create_material("texture_color", "mvp_texture_color")
-    _create_material("mix_textures_color", "mvp_mix_textures_color")
+    mixed_textures_material = _create_material("mix_textures_color", "mvp_mix_textures_color")
     _create_material("uv_color", "mvp_uv_color")
     _create_material("normal_color", "mvp_normal_color")
     _create_material("vertex_color", "mvp_vertex_color")
@@ -141,12 +151,32 @@ def _create_materials():
     green_diffuse_material.use()
     green_diffuse_material.set_uniform("color", [0.0, 1.0, 0])
 
+    # i should have a texture manager
     texture1 = Texture.from_image("img/ash_uvgrid01.jpg")
-    # self.texture2 = Texture.from_image("img/wall.jpg")
-    # self.texture3 = Texture.from_image("img/awesomeface.png")
+    texture2 = Texture.from_image("img/wall.jpg")
+    texture3 = Texture.from_image("img/awesomeface.png")
+
+    low_poly_texture = Texture.from_image("img/ImphenziaPalette02-Albedo.png")
+
     textured_material.use()
-    texture1.bind(0)
-    textured_material.set_uniform("texture0", [0])
+    textured_material.set_texture("texture0", texture1, 0)
+
+    mixed_textures_material.use()
+    mixed_textures_material.set_texture("texture0", texture1, 0)
+    mixed_textures_material.set_texture("texture1", texture2, 1)
+
+    low_poly_material.use()
+    low_poly_material.set_texture("texture0", low_poly_texture, 0)
+
+    # ideally, we should grab these default values from the shader
+    # source code
+    phong_color_material.use()
+    phong_color_material.set_uniform("slider_0_1_reflectivity", [1.0])
+    phong_color_material.set_uniform("slider_1_32_shine_damper", [32.0])
+
+
+    grid_material.use()
+    grid_material.set_uniform("color", [0.678, 0.678, 0.678])
 
 
 def _create_material(name, shader_name):

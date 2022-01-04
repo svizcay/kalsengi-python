@@ -45,6 +45,9 @@ class Scene:
         # testing grid
         grid_mesh = GridMesh()
         grid_material = material_manager.get_from_name("flat_color_uniform_far_clipped")
+        # using a grid with vertex color didn't work as expected
+        # because we are moving the grid with the camera
+        # grid_material = material_manager.get_from_name("vertex_color")
         self.grid_renderer = MeshRenderer(
             None,
             grid_mesh,
@@ -53,21 +56,21 @@ class Scene:
         self.grid_clip_distance = 75.0
 
         # testing textures
-        self.texture1 = Texture.from_image("img/ash_uvgrid01.jpg")
-        self.texture2 = Texture.from_image("img/wall.jpg")
-        self.texture3 = Texture.from_image("img/awesomeface.png")
-        self.textured_material = material_manager.get_from_name("mix_textures_color")
-        self.textured_material.use()
-        self.texture1.bind(0)
-        self.texture2.bind(1)
-        # even if we are not drawing anything with textures
-        # we can not tell about other libraries like imgui
-        # so it's not just a matter of telling the shader program what texture unit to use with glUnifor
-        # but also about saying what's the texture id in that texture slot (bind texture)
-        # but maybe what we can "skip" is saying over and over again what's the texture unit to use in the shader program
-        # that data is per glProgram and we should be able to set it just one
-        self.textured_material.set_uniform("texture0", [0])
-        self.textured_material.set_uniform("texture1", [1])
+        # self.texture1 = Texture.from_image("img/ash_uvgrid01.jpg")
+        # self.texture2 = Texture.from_image("img/wall.jpg")
+        # self.texture3 = Texture.from_image("img/awesomeface.png")
+        # self.textured_material = material_manager.get_from_name("mix_textures_color")
+        # self.textured_material.use()
+        # self.texture1.bind(0)
+        # self.texture2.bind(1)
+        # # even if we are not drawing anything with textures
+        # # we can not tell about other libraries like imgui
+        # # so it's not just a matter of telling the shader program what texture unit to use with glUnifor
+        # # but also about saying what's the texture id in that texture slot (bind texture)
+        # # but maybe what we can "skip" is saying over and over again what's the texture unit to use in the shader program
+        # # that data is per glProgram and we should be able to set it just one
+        # self.textured_material.set_uniform("texture0", [0])
+        # self.textured_material.set_uniform("texture1", [1])
 
     def add_game_object(self, game_object):
         self.game_objects.append(game_object)
@@ -119,6 +122,12 @@ class Scene:
                 self.grid_clip_distance = grid_clip_distance
             imgui.end()
 
+            # how am i supposed to execute some
+            # opengl code (setting the state machine)
+            # before rendering?
+            # is the renderer in charge of that?
+            # or is it the material?
+            # how should i render multiple passes?
             gl.glLineWidth(1)
             self.grid_renderer.material.use()
             # the grid needs to move with the camera in the xy plane
@@ -154,12 +163,12 @@ class Scene:
         for material in game_objects_per_material:
             material.use()
 
-            # testing textures
-            self.texture1.bind(0)
-            self.texture2.bind(1)
-            # material.set_uniform("texture0", [0])
-            # material.set_uniform("texture1", [1])
-            # end testing texture
+            # # testing textures
+            # self.texture1.bind(0)
+            # self.texture2.bind(1)
+            # # material.set_uniform("texture0", [0])
+            # # material.set_uniform("texture1", [1])
+            # # end testing texture
 
             for game_obj in game_objects_per_material[material]:
                 for component in game_obj.components:
@@ -194,7 +203,7 @@ class Scene:
                             # i.e, rather than a pyrr.vector or python array, expand them
                             # to a comma separated invidual floats
                             material.set_uniform("light_pos", self.light_sources[0].position)
-                            material.set_uniform("light_color", self.light_sources[0].color)
+                            material.set_uniform("_light_color", self.light_sources[0].color)
 
                         # now we can ask the meshRenderer to draw the geometry
                         component.render()

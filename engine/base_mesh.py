@@ -278,6 +278,7 @@ class BaseMesh():
 
             tcs = mesh.texturecoords
             if tcs.any():
+                # we expect uvs as vec2 but some meshes they are vec3
                 uvs = mesh.texturecoords[0]
                 for tc_index, tc in enumerate(tcs):
                     if verbose:
@@ -305,15 +306,25 @@ class BaseMesh():
         # [x1, y1, z1, x2, y2, z2, x3, y3, z3]
         # it's going to return
         # [[x1, y1, z1], [x2, y2, z2], [x3, y3, z3]]
+        # and also, for uvs, some models have 3 components (this value is not the same as uv-component)
+        # which is returning 8 with the first of them equal to 2
+        # and all the others equal to zero
+        # but the data has vec3 with zeros for z
         vertices = [coord for vertex in vertices for coord in vertex]
+        final_uvs = None
         if uvs is not None:
-            uvs = [coord for uv in uvs for coord in uv]
+            final_uvs = []
+            for uv in uvs:
+                final_uvs.append(uv[0])
+                final_uvs.append(uv[1])
+
+            # uvs = [coord for uv in uvs for coord in uv]
         if normals is not None:
             normals = [coord for normal in normals for coord in normal]
         if colors is not None:
             colors = [channel for color in colors for channel in color]
         indices = [index for triangle in indices for index in triangle]
-        mesh_instance = cls(vertices, uvs=uvs ,normals=normals ,colors=colors, indices=indices, verbose=verbose)
+        mesh_instance = cls(vertices, uvs=final_uvs ,normals=normals ,colors=colors, indices=indices, verbose=verbose)
 
         assimp.release(asset)
 
@@ -392,6 +403,9 @@ class Triangle(BaseMesh):
         super().__init__(vertices, uvs=uvs, normals=normals, colors=colors, indices=indices)
 
 class GridMesh(BaseMesh):
+    # update: we are going to draw the axis with color
+    # and the regular lines will be gray
+    # every 10 there will be a lighter line
 
     def __init__(self, size:int = 200):
 
@@ -403,6 +417,13 @@ class GridMesh(BaseMesh):
         pos_x = -half_size
 
         default_vertices = []
+        default_colors = []
+        # default_colors = [
+        #     1, 0, 0,
+        #     0, 1, 0,
+        # ]
+        regular_line_color = [0.301, 0.301, 0.301]
+        special_line_color = [0.678, 0.678, 0.678]
 
         # forward lines
         for i in range(size):
@@ -415,6 +436,35 @@ class GridMesh(BaseMesh):
             default_vertices.append(pos_x)
             default_vertices.append(0)
             default_vertices.append(half_size)
+
+            # color
+            if i == half_size:
+                # blue
+                default_colors.append(0)
+                default_colors.append(0)
+                default_colors.append(1)
+
+                default_colors.append(0)
+                default_colors.append(0)
+                default_colors.append(1)
+            else:
+                if i % 10 == 0:
+                    default_colors.append(special_line_color[0])
+                    default_colors.append(special_line_color[1])
+                    default_colors.append(special_line_color[2])
+
+                    default_colors.append(special_line_color[0])
+                    default_colors.append(special_line_color[1])
+                    default_colors.append(special_line_color[2])
+                else:
+                    default_colors.append(regular_line_color[0])
+                    default_colors.append(regular_line_color[1])
+                    default_colors.append(regular_line_color[2])
+
+                    default_colors.append(regular_line_color[0])
+                    default_colors.append(regular_line_color[1])
+                    default_colors.append(regular_line_color[2])
+
 
             pos_x = pos_x + 1
 
@@ -430,9 +480,37 @@ class GridMesh(BaseMesh):
             default_vertices.append(0)
             default_vertices.append(pos_z)
 
+            # color
+            if i == half_size:
+                # red
+                default_colors.append(1)
+                default_colors.append(0)
+                default_colors.append(0)
+
+                default_colors.append(1)
+                default_colors.append(0)
+                default_colors.append(0)
+            else:
+                if i % 10 == 0:
+                    default_colors.append(special_line_color[0])
+                    default_colors.append(special_line_color[1])
+                    default_colors.append(special_line_color[2])
+
+                    default_colors.append(special_line_color[0])
+                    default_colors.append(special_line_color[1])
+                    default_colors.append(special_line_color[2])
+                else:
+                    default_colors.append(regular_line_color[0])
+                    default_colors.append(regular_line_color[1])
+                    default_colors.append(regular_line_color[2])
+
+                    default_colors.append(regular_line_color[0])
+                    default_colors.append(regular_line_color[1])
+                    default_colors.append(regular_line_color[2])
+
             pos_z = pos_z + 1
 
-        super().__init__(default_vertices, drawing_mode=gl.GL_LINES)
+        super().__init__(default_vertices, colors=default_colors, drawing_mode=gl.GL_LINES)
 
 
 class Line(BaseMesh):

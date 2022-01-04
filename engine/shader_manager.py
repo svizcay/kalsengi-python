@@ -166,16 +166,19 @@ def _load_shaders():
         "engine/shaders/fragment/flat_time_color.glsl"
     )
 
+    # by mistake we were using simple_mvp.glsl as vertex shader
+    # and this doens't forward the uv expected in the frag.
+    # why we didn't get any error??
     _load_shader(
         "mvp_texture_uniform_color",
-        "engine/shaders/vertex/simple_mvp.glsl",
+        "engine/shaders/vertex/simple_mvp_uv.glsl",
         "engine/shaders/fragment/texture_uniform_color.glsl"
     )
 
     _load_shader(
         "mvp_texture_vertex_color",
-        "engine/shaders/vertex/simple_mvp.glsl",
-        "engine/shaders/fragment/texture_uniform_color.glsl"
+        "engine/shaders/vertex/simple_mvp_uv.glsl",
+        "engine/shaders/fragment/texture_vertex_color.glsl"
     )
 
     _load_shader(
@@ -233,6 +236,13 @@ def _load_shaders():
         "engine/shaders/fragment/flat_color_diffuse.glsl"
     )
 
+    # textured diffuse
+    _load_shader(
+        "texture_color_diffuse",
+        "engine/shaders/vertex/mvp_light_uv.glsl",
+        "engine/shaders/fragment/texture_color_diffuse.glsl"
+    )
+
     # testing world space color
     _load_shader(
         "world_space_color",
@@ -259,6 +269,13 @@ def _load_shaders():
         "mvp_light_specular",
         "engine/shaders/vertex/mvp_light_specular.glsl",
         "engine/shaders/fragment/light_specular.glsl"
+    )
+
+    # phong (ambient + diffuse + specular) * uniform color
+    _load_shader(
+        "phong_uniform_color",
+        "engine/shaders/vertex/mvp_light_specular.glsl",
+        "engine/shaders/fragment/phong_uniform_color.glsl"
     )
 
     # watchdog stuff

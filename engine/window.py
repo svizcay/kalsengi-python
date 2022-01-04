@@ -50,6 +50,7 @@ from .gui import CameraGUI
 from .gui import MaterialGUI
 
 import engine.time
+from engine import input_manager
 
 from .editor_window import RenderingInfoWindow, MaterialManagerWindow, SceneCameraWindow, OpenCVWebcamWindow
 
@@ -129,6 +130,7 @@ class Window:
         # maybe this needs to go before setting the context as current
         glfw.set_window_size_callback(self._context, window_size_callback)
         glfw.set_framebuffer_size_callback(self._context, framebuffer_size_callback)
+
         # not working because of imgui
         glfw.set_cursor_pos_callback(self._context, cursor_position_callback)
 

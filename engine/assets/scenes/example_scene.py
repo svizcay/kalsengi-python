@@ -22,7 +22,7 @@ class ExampleScene(Scene):
         # dragon_go = GameObject("dragon")
         # plane_go = GameObject("floor")
         # cube_go = GameObject("cube")
-        blender_quad = GameObject("blender quad")
+        dragon = GameObject("dragon")
         game_camera = GameObject("game camera")
         light = GameObject("light")
 
@@ -41,15 +41,22 @@ class ExampleScene(Scene):
         # blender_quad_mesh = Cube()
         # blender_quad_mesh = BaseMesh.from_imported_file("test.pkl")
         # monkey_mesh = BaseMesh.from_file("models/suzanne/suzanne.fbx", True)
-        monkey_mesh = BaseMesh.from_imported_file("models/suzanne/suzanne.pkl")
-        blender_quad_mesh = BaseMesh.from_imported_file("models/xyzrgb_dragon/xyzrgb_dragon.pkl")
+        # monkey_mesh = BaseMesh.from_imported_file("models/suzanne/suzanne.pkl")
+        # monkey_mesh = BaseMesh.from_file("models/suzanne/textured/suzanne_uv.obj", True)
+        # monkey_mesh = BaseMesh.from_file("models/suzanne/textured/suzanne_uv.fbx", True)
+        # monkey_mesh = BaseMesh.from_file("models/suzanne/textured/suzanne_uv_smooth.fbx", True)
+        # monkey_mesh = BaseMesh.from_imported_file("models/suzanne/textured/suzanne_uv.pkl")
+        monkey_mesh = BaseMesh.from_imported_file("models/suzanne/textured/suzanne_uv_smooth.pkl")
+        dragon_mesh = BaseMesh.from_imported_file("models/xyzrgb_dragon/xyzrgb_dragon.pkl")
 
         # textured_material = material_manager.get_from_name("texture_uniform_color")
+        low_poly_material = material_manager.get_from_name("low_poly")
         textured_material = material_manager.get_from_name("mix_textures_color")
         red_diffuse_material = material_manager.get_from_name("red_diffuse")
         green_diffuse_material = material_manager.get_from_name("green_diffuse")
         diffuse_material = material_manager.get_from_name("light_direction_color")
         default_material = material_manager.get_from_name("light_specular")
+        phong_color_material = material_manager.get_from_name("phong_color")
 
         ########################################################################
         # ADD COMPONENTS
@@ -73,14 +80,14 @@ class ExampleScene(Scene):
         light.add_component(Light, LightType.DIRECTIONAL)
         monkey_go.add_component(MeshRenderer, monkey_mesh, red_diffuse_material)
         monkey_go2.add_component(MeshRenderer, monkey_mesh, green_diffuse_material)
-        monkey_go3.add_component(MeshRenderer, monkey_mesh, textured_material)
+        monkey_go3.add_component(MeshRenderer, monkey_mesh, low_poly_material)
 
         # i can not pass key parameters to game_object.add_component()
         # monkey_go.add_component(Rotate, axis=pyrr.Vector3([0, 0, 1]))
         monkey_go.add_component(Rotate, 90.0, pyrr.Vector3([0, 0, 1]))
         monkey_go2.add_component(Rotate, 90.0, pyrr.Vector3([0, 0, 1]))
         monkey_go3.add_component(Rotate, 90.0, pyrr.Vector3([0, 0, 1]))
-        blender_quad.add_component(MeshRenderer, blender_quad_mesh, default_material)
+        dragon.add_component(MeshRenderer, dragon_mesh, phong_color_material)
 
         ########################################################################
         # CONFIGURE COMPONENTS
@@ -99,7 +106,7 @@ class ExampleScene(Scene):
         # plane_go.transform.local_euler_angles = pyrr.Vector3([270, 0, 0])
         # plane_go.transform.local_scale = pyrr.Vector3([10,10,10])
         # cube_go.transform.local_position = pyrr.Vector3([0, 0.5, 0])
-        blender_quad.transform.local_scale = pyrr.Vector3([0.1, 0.1, 0.1])
+        dragon.transform.local_scale = pyrr.Vector3([0.1, 0.1, 0.1])
 
         ########################################################################
         # ADD GAME OBJECTS TO THE SCENE
@@ -110,6 +117,6 @@ class ExampleScene(Scene):
         self.add_game_object(monkey_go3)
         # self.scene.add_game_object(plane_go)
         # self.scene.add_game_object(cube_go)
-        self.add_game_object(blender_quad)
+        self.add_game_object(dragon)
         self.add_game_object(game_camera)
         self.add_game_object(light)

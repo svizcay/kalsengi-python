@@ -39,6 +39,8 @@ class Material:
         self.vertex_attribs = {}
         self.discarded_vertex_attribs = {}
 
+        self.textures = []
+
         self.uuid = None
 
         self.gui = None
@@ -67,6 +69,7 @@ class Material:
 
             uniform["fun"] = gl_uniform_type_to_function[type_]
 
+            # uniform["value"] = None
             # based on type and 'name', we should provide a default value
             if type_ == gl.GL_FLOAT_VEC3:
                 if "color" in name:
@@ -120,6 +123,13 @@ class Material:
             if self.uniforms[uniform_name]["dirty"] and "value" in self.uniforms[uniform_name]:
                 self.set_uniform(uniform_name, self.uniforms[uniform_name]["value"])
 
+        # if len(self.textures) > 0:
+        #     print("using material {}".format(self.uuid))
+        for texture in self.textures:
+            # bind the texture and the right texture unit
+            # print("binding texture {} {} {}".format(texture["texture"], texture["unit"], texture["name"]))
+            texture["texture"].bind(texture["unit"])
+
     # we need a method for callbacks to use with gui widgets
     # that "set uniform values" but those are not apply (call to glUniform)
     # until the next time we use the material
@@ -127,6 +137,20 @@ class Material:
         if (uniform_name in self.uniforms):
             self.uniforms[uniform_name]["value"] = list_of_values
             self.uniforms[uniform_name]["dirty"] = True
+
+    # this is intended to be called once during setup
+    # and then we will bind the appropiate textures when we use the material
+    # when calling this method, make sure the program/material is in use
+    def set_texture(self, uniform_name, texture, texture_unit):
+        entry = {}
+        entry["name"] = uniform_name
+        entry["texture"] = texture
+        entry["unit"] = texture_unit
+        self.textures.append(entry)
+        # setting the uniform only needs to be done once
+        self.set_uniform(uniform_name, [texture_unit], True)
+
+
 
     # general method for setting uniforms.
     # shader program needs to be bound.
